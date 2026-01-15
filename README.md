@@ -2,6 +2,21 @@
 
 基于 AI 驱动的简谱和弦自动转调工具，支持上传简谱图片，自动识别和弦并转调到任意调性。
 
+## 📝 最新更新
+
+### 2025-01-23
+
+**Bug 修复**：原调显示逻辑优化
+- 修复了用户手动选择原调时仍显示"已自动识别"标记的问题
+- 添加 `isAutoRecognized` 状态，明确区分AI识别和手动选择
+- 用户现在可以随时修改原调，不会再出现误判
+
+**商业化准备**：API Key 配置支持
+- 项目已支持自定义 API Key 配置
+- 环境变量优先级高于 SDK 默认配置
+- 提供完整的商业化应对方案（支持多模型切换）
+- 详细文档请参阅 [商业化应对方案](./COMMERCIALIZATION_PLAN.md)
+
 ## 功能特性
 
 ### ✅ 已实现功能
@@ -206,6 +221,30 @@ coze dev
 }
 ```
 
+#### API Key 配置（商业化准备）
+
+项目支持自定义 API Key 配置，以应对 Coze API 收费或商业化场景：
+
+**环境变量配置**：
+```bash
+# .env.local 或部署平台环境变量
+VISION_MODEL_TYPE=coze  # coze | deepseek | openai
+COZE_API_KEY=your-api-key-here
+```
+
+**代码支持**：
+- API Route 已支持自定义 Config
+- 环境变量优先级高于 SDK 默认配置
+- 无需修改核心代码即可切换 API Key
+
+**详细方案**：请参阅 [商业化应对方案](./COMMERCIALIZATION_PLAN.md) 文档，包含：
+- 短期应急方案（1-3天）
+- 中期优化方案（1-2周）
+- 长期战略方案（1个月+）
+- 多模型适配器架构
+- 成本优化策略
+- 详细实施指南
+
 #### 提示词优化
 
 系统使用精心设计的提示词，包括：
@@ -218,16 +257,16 @@ coze dev
 
    1. 调号（Key）：如 "1=C", "1=G", "Key: F" 等
    2. 所有和弦标记：如 C, Am, G7, Fsus4, C/E 等
-   3. 每个和弦的位置（百分比坐标）
+   3. 每个和弦的位置（像素中心点坐标）
 
    请以JSON格式返回：
    {
      "key": "C",
-     "chords": [
+     "centers": [
        {
          "text": "C",
-         "x": 20,
-         "y": 30
+         "cx": 150,
+         "cy": 200
        },
        ...
      ]
@@ -261,3 +300,29 @@ MIT
 - [Next.js](https://nextjs.org/)
 - [shadcn/ui](https://ui.shadcn.com/)
 - [Sharp](https://sharp.pixelplumbing.com/)
+- [豆包视觉模型](https://www.coze.cn/)
+
+## 更新日志
+
+### 2025-01-23
+
+**Bug 修复**
+- [修复] 原调显示逻辑优化 - 用户手动选择原调时不再显示"已自动识别"标记
+- [新增] `isAutoRecognized` 状态变量
+- [优化] 用户界面逻辑，明确区分AI识别和手动选择
+
+**文档更新**
+- [新增] 商业化应对方案文档 (`COMMERCIALIZATION_PLAN.md`)
+- [新增] Bug修复说明文档 (`BUGFIX_MANUAL_KEY_SELECTION.md`)
+- [更新] README.md，添加商业化准备说明
+- [更新] `.env.example`，添加API Key配置说明
+
+**技术改进**
+- [改进] API Key配置支持（环境变量优先级）
+- [改进] 代码注释和文档完善
+- [改进] 状态管理逻辑优化
+
+---
+
+**文档版本**: v1.1
+**最后更新**: 2025-01-23

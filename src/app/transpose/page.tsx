@@ -485,6 +485,7 @@ export default function TransposePage() {
         setAnchorPoints([]);
         setResult(null);
         setOriginalKey('');
+        setIsAutoRecognized(false);
         setIsRecognizing(false);
       };
       reader.readAsDataURL(file);
@@ -498,6 +499,7 @@ export default function TransposePage() {
     setAnchorPoints([]);
     setResult(null);
     setOriginalKey('');
+    setIsAutoRecognized(false);
     setTargetKey('');
     setDirection('');
     setSemitones('');
@@ -657,6 +659,12 @@ export default function TransposePage() {
   const handleRelocateFirst = () => {
     setAnchorPoints([]);
     setPageState('locating_first');
+  };
+
+  // 用户手动选择原调时，清除自动识别标记
+  const handleManualSelectOriginalKey = (key: string) => {
+    setOriginalKey(key);
+    setIsAutoRecognized(false); // 用户手动选择，标记为非自动识别
   };
 
   // 自动计算半音数和方向（优先选择小的）
@@ -1014,7 +1022,7 @@ export default function TransposePage() {
                       <label className="block text-sm font-medium mb-2">
                         原调
                       </label>
-                      {originalKey ? (
+                      {isAutoRecognized ? (
                         <div className="space-y-1">
                           <div className="w-full px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center">
                             {formatKeyLabel(originalKey)}
@@ -1024,7 +1032,7 @@ export default function TransposePage() {
                           </div>
                         </div>
                       ) : (
-                        <Select value={originalKey} onValueChange={setOriginalKey}>
+                        <Select value={originalKey} onValueChange={handleManualSelectOriginalKey}>
                           <SelectTrigger>
                             <SelectValue placeholder="请选择" />
                           </SelectTrigger>
