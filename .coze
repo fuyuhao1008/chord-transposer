@@ -1,0 +1,14 @@
+[project]
+entrypoint = "index.html"
+requires = ["nodejs-24"]
+
+[dev]
+build = ["bash", "./scripts/prepare.sh"]
+run = ["bash", "./scripts/dev.sh"]
+deps = ["git"]
+
+[deploy]
+build = ["bash","./scripts/build.sh"]
+run = ["bash","./scripts/start.sh"]
+port = 5000
+deps = ["git"]
