@@ -102,10 +102,6 @@ const OCR_CORRECTION_LIBRARY: Record<string, Record<string, string>> = {
   'Bb': {
     // Slash 低音
     'E/G': 'Eb/G',
-
-    // 和弦根音
-    'E/Bb': 'Eb/Bb',
-    'E/F': 'Eb/F',
   },
 
   // Eb 调（3♭：Bb, Eb, Ab）
@@ -113,10 +109,6 @@ const OCR_CORRECTION_LIBRARY: Record<string, Record<string, string>> = {
     // Slash 低音
     'E/G': 'Eb/G',
     'A/C': 'Ab/C',
-
-    // 和弦根音
-    'E/Bb': 'Eb/Bb',
-    'A/Eb': 'Ab/Eb',
   },
 
   // Ab 调（4♭：Bb, Eb, Ab, Db）
@@ -124,10 +116,6 @@ const OCR_CORRECTION_LIBRARY: Record<string, Record<string, string>> = {
     // Slash 低音
     'A/C': 'Ab/C',
     'D/F': 'Db/F',
-
-    // 和弦根音
-    'A/Eb': 'Ab/Eb',
-    'D/Ab': 'Db/Ab',
   },
 
   // Db 调（5♭：Bb, Eb, Ab, Db, Gb）
@@ -135,10 +123,6 @@ const OCR_CORRECTION_LIBRARY: Record<string, Record<string, string>> = {
     // Slash 低音
     'G/B': 'Gb/Bb',
     'D/F': 'Db/F',
-
-    // 和弦根音
-    'G/Db': 'Gb/Db',
-    'C/F': 'Cb/F',
   },
 
   // Gb 调（6♭：Bb, Eb, Ab, Db, Gb, Cb）
@@ -146,10 +130,6 @@ const OCR_CORRECTION_LIBRARY: Record<string, Record<string, string>> = {
     // Slash 低音
     'G/B': 'Gb/Bb',
     'C/E': 'Cb/Eb',
-
-    // 和弦根音
-    'G/Db': 'Gb/Db',
-    'C/Gb': 'Cb/Gb',
   },
 
   // Cb 调（7♭，实际很少用，通常用B调代替）
@@ -178,18 +158,10 @@ export interface TransposeResult {
   }[];
 }
 
-// 12个调的音阶（升号形式）
-export const CHROMATIC_SCALE_SHARP = [
+// 12个调的音阶
+export const CHROMATIC_SCALE = [
   'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
 ];
-
-// 12个调的音阶（降号形式）
-export const CHROMATIC_SCALE_FLAT = [
-  'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'
-];
-
-// 兼容性：保留旧的常量名
-export const CHROMATIC_SCALE = CHROMATIC_SCALE_SHARP;
 
 // 等音转换映射（根据用户要求）
 // D# → bE, A# → bB
@@ -365,32 +337,16 @@ class ChordTransposer {
    * 在音阶中移动半音数
    * @param note 音符，如 'C', 'G#', 'Bb'
    * @param semitones 半音数，正数表示升高，负数表示降低
-   * @param useFlats 是否使用降号形式（如 Eb 代替 D#）
    */
-  shiftNote(note: string, semitones: number, useFlats: boolean = false): string {
+  shiftNote(note: string, semitones: number): string {
     // 将输入音符规范化为升号形式以查找索引
     const normalizedNote = this.normalizeToSharp(note);
-    const scale = CHROMATIC_SCALE_SHARP;
-    const index = scale.findIndex(n => n === normalizedNote);
+    const index = CHROMATIC_SCALE.findIndex(n => n === normalizedNote);
 
     if (index === -1) return note;
 
-    // 计算新索引
     const newIndex = ((index + semitones) % 12 + 12) % 12;
-
-    // 根据参数选择升号或降号音阶
-    const targetScale = useFlats ? CHROMATIC_SCALE_FLAT : CHROMATIC_SCALE_SHARP;
-    let newNote = targetScale[newIndex];
-
-    // 如果是降号形式，确保不使用 Cb、Fb、E#、B# 等不太常用的形式
-    if (useFlats && (newNote === 'Cb' || newNote === 'Fb')) {
-      // Cb → B, Fb → E
-      newNote = newNote === 'Cb' ? 'B' : 'E';
-    }
-    if (!useFlats && (newNote === 'E#' || newNote === 'B#')) {
-      // E# → F, B# → C
-      newNote = newNote === 'E#' ? 'F' : 'C';
-    }
+    let newNote = CHROMATIC_SCALE[newIndex];
 
     return newNote;
   }
@@ -399,11 +355,22 @@ class ChordTransposer {
    * 转调单个和弦
    * @param chord 和弦对象
    * @param semitones 半音数
-   * @param useFlats 是否使用降号形式（目标调是降号调时为 true）
+   * @param useEnharmonic 是否使用等音（如 Eb 代替 D#）
    */
-  transposeChord(chord: Chord, semitones: number, useFlats: boolean = false): Chord {
-    const newRoot = this.shiftNote(chord.root, semitones, useFlats);
-    const newBass = chord.bass ? this.shiftNote(chord.bass, semitones, useFlats) : undefined;
+  transposeChord(chord: Chord, semitones: number, useEnharmonic: boolean = true): Chord {
+    let newRoot = this.shiftNote(chord.root, semitones);
+    let newBass = chord.bass ? this.shiftNote(chord.bass, semitones) : undefined;
+
+    // 如果使用等音，对结果进行等音转换
+    if (useEnharmonic) {
+      if (newRoot) {
+        // 根据用户要求：D# → Eb, A# → Bb
+        newRoot = ENHARMONIC_MAP[newRoot] || newRoot;
+      }
+      if (newBass) {
+        newBass = ENHARMONIC_MAP[newBass] || newBass;
+      }
+    }
 
     return {
       root: newRoot,
@@ -478,7 +445,7 @@ class ChordTransposer {
    * @param chords 和弦列表
    * @param originalKey 原调
    * @param semitones 半音数（正数表示升，负数表示降）
-   * @param useEnharmonic 是否使用等音（已废弃，参数保留以兼容）
+   * @param useEnharmonic 是否使用等音
    */
   transposeChordsBySemitones(
     chords: Chord[],
@@ -492,21 +459,19 @@ class ChordTransposer {
     // 计算目标调
     const originalIndex = CHROMATIC_SCALE.findIndex(k => k === normalizedOriginal);
     const targetIndex = ((originalIndex + semitones) % 12 + 12) % 12;
+    let targetKeyCalculated = CHROMATIC_SCALE[targetIndex];
 
-    // 使用 shiftNote 方法计算目标调（会自动应用正确的升降号）
-    let targetKeyCalculated = this.shiftNote(normalizedOriginal, semitones, false);
-
-    // 根据目标调性决定是否使用降号形式
-    // 降号调：F, Bb, Eb, Ab, Db, Gb, Cb
-    const flatKeys = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'];
-    const shouldUseFlats = flatKeys.includes(targetKeyCalculated);
+    // 应用等音转换
+    if (useEnharmonic) {
+      targetKeyCalculated = ENHARMONIC_MAP[targetKeyCalculated] || targetKeyCalculated;
+    }
 
     return {
       originalKey,
       targetKey: targetKeyCalculated,
       semitones,
       chords: chords.map(chord => {
-        const transposed = this.transposeChord(chord, semitones, shouldUseFlats);
+        const transposed = this.transposeChord(chord, semitones, useEnharmonic);
         // 修正不可能的和弦（如 G/A# -> G/B）
         return {
           original: chord,
