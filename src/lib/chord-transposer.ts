@@ -7,133 +7,170 @@ export type ChordQuality = '' | 'm' | 'maj' | 'min' | 'aug' | 'dim' | 'sus2' | '
 
 // OCR修正库：根据原调修正AI识别遗漏的升降号
 const OCR_CORRECTION_LIBRARY: Record<string, Record<string, string>> = {
-  // ==================== 升号调 ====================
+  /* ======================
+   * 升号调（Sharp Keys）
+   * ====================== */
 
-  // C调（无升降号）
+  // C 调（无升降号）
   'C': {},
 
-  // G调（1个升号：F#）
+  // G 调（1#：F#）
   'G': {
+    // Slash 低音
+    'G/F': 'G/F#',
+    'Em/F': 'Em/F#',
     'D/F': 'D/F#',
+
+    // 和弦根音
+    'F/A': 'F#/A',
+    'F/D': 'F#/D',
   },
 
-  // D调（2个升号：F#, C#）
+  // D 调（2#：F#, C#）
   'D': {
+    // Slash 低音
     'A/C': 'A/C#',
     'D/F': 'D/F#',
+    'Bm/F': 'Bm/F#',
+    'E7/G': 'E7/G#',
+
+    // 和弦根音
+    'C/E': 'C#/E',
+    'C/G': 'C#/G',
+    'F/A': 'F#/A',
   },
 
-  // A调（3个升号：F#, C#, G#）
+  // A 调（3#：F#, C#, G#）
   'A': {
+    // Slash 低音
     'A/C': 'A/C#',
     'D/F': 'D/F#',
     'E/G': 'E/G#',
-    'Fm': 'F#m',
-    'C': 'C#',
-    'C7': 'C#7',
+    'C#m/G': 'C#m/G#',
+
+    // 和弦根音
+    'C/E': 'C#/E',
+    'F/A': 'F#/A',
+    'G/B': 'G#/B',
   },
 
-  // E调（4个升号：F#, C#, G#, D#）
+  // E 调（4#：F#, C#, G#, D#）
   'E': {
+    // Slash 低音
+    'E/G': 'E/G#',
     'B/D': 'B/D#',
     'A/C': 'A/C#',
-    'E/G': 'E/G#',
+    'F#7/A': 'F#7/A#',
+
+    // 和弦根音
+    'C/E': 'C#/E',
+    'D/F#': 'D#/F#',
+    'G/B': 'G#/B',
   },
 
-  // B调（5个升号：F#, C#, G#, D#, A#）
+  // B 调（5#：F#, C#, G#, D#, A#）
   'B': {
-    'F#/A': 'F#/A#',
+    // Slash 低音
+    'B/D': 'B/D#',
     'E/G': 'E/G#',
-    'B/D': 'B/D#',
-  },
-
-  // F#调（6个升号：F#, C#, G#, D#, A#, E#）
-  'F#': {
-    'C#/E': 'C#/E#',
     'F#/A': 'F#/A#',
-    'B/D': 'B/D#',
+    'C#m/G': 'C#m/G#',
+
+    // 和弦根音
+    'C/E': 'C#/E',
+    'D/F#': 'D#/F#',
+    'A/C#': 'A#/C#',
   },
 
-  // C#调（7个升号：F#, C#, G#, D#, A#, E#, B#）
+  // F# 调（6#：F#, C#, G#, D#, A#, E#）
+  'F#': {
+    // Slash 低音
+    'F#/A': 'F#/A#',
+    'C#/E': 'C#/E#',
+    'B/D': 'B/D#',
+
+    // 和弦根音（OCR 极易漏 #）
+    'F/A': 'F#/A#',
+    'C/E': 'C#/E#',
+    'G/B': 'G#/B',
+    'D/F#': 'D#/F#',
+  },
+
+  // C# 调（7#：F#, C#, G#, D#, A#, E#, B#）
   'C#': {
     'F#/A': 'F#/A#',
-    'G#/B': 'G#/B#',
     'C#/E': 'C#/E#',
+    'G#/B': 'G#/B#',
   },
 
-  // ==================== 降号调 ====================
+  /* ======================
+   * 降号调（Flat Keys）
+   * ====================== */
 
-  // F调（1个降号：Bb）
+  // F 调（1♭：Bb）
   'F': {
     'Bb/D': 'Bb/D',
   },
 
-  // Bb调（2个降号：Bb, Eb）
+  // Bb 调（2♭：Bb, Eb）
   'Bb': {
-    'Eb/G': 'Eb/G',
-    'G/B': 'G/Bb',
-    'C/E': 'C/Eb',
+    // Slash 低音
+    'E/G': 'Eb/G',
+
+    // 和弦根音
+    'E/Bb': 'Eb/Bb',
+    'E/F': 'Eb/F',
   },
 
-  // Eb调（3个降号：Bb, Eb, Ab）
+  // Eb 调（3♭：Bb, Eb, Ab）
   'Eb': {
-    'Bb/D': 'Bb/D',
-    'Ab/C': 'Ab/C',
-    'F/A': 'F/Ab',
-    'G/B': 'G/Bb',
+    // Slash 低音
+    'E/G': 'Eb/G',
+    'A/C': 'Ab/C',
+
+    // 和弦根音
+    'E/Bb': 'Eb/Bb',
+    'A/Eb': 'Ab/Eb',
   },
 
-  // Ab调（4个降号：Bb, Eb, Ab, Db）
+  // Ab 调（4♭：Bb, Eb, Ab, Db）
   'Ab': {
-    'Eb/G': 'Eb/G',
-    'Db/F': 'Db/F',
-    'F/A': 'F/Ab',
-    'C/E': 'C/Eb',
+    // Slash 低音
+    'A/C': 'Ab/C',
+    'D/F': 'Db/F',
+
+    // 和弦根音
+    'A/Eb': 'Ab/Eb',
+    'D/Ab': 'Db/Ab',
   },
 
-  // Db调（5个降号：Bb, Eb, Ab, Db, Gb）
+  // Db 调（5♭：Bb, Eb, Ab, Db, Gb）
   'Db': {
-    'Ab/C': 'Ab/C',
-    'Gb/Bb': 'Gb/Bb',
-    'F/A': 'F/Ab',
-    'Eb/G': 'Eb/Gb',
+    // Slash 低音
+    'G/B': 'Gb/Bb',
+    'D/F': 'Db/F',
+
+    // 和弦根音
+    'G/Db': 'Gb/Db',
+    'C/F': 'Cb/F',
   },
 
-  // Gb调（6个降号：Bb, Eb, Ab, Db, Gb, Cb）
+  // Gb 调（6♭：Bb, Eb, Ab, Db, Gb, Cb）
   'Gb': {
-    'Db/F': 'Db/F',
-    'Gb/Bb': 'Gb/Bb',
-    'Eb/G': 'Eb/Gb',
-    'Ab/C': 'Ab/Cb',
+    // Slash 低音
+    'G/B': 'Gb/Bb',
+    'C/E': 'Cb/Eb',
+
+    // 和弦根音
+    'G/Db': 'Gb/Db',
+    'C/Gb': 'Cb/Gb',
   },
 
-  // Cb调（7个降号，实际很少用，通常用B调代替）
+  // Cb 调（7♭，实际很少用，通常用B调代替）
   'Cb': {
-    'Gb/Bb': 'Gb/Bb',
-    'Db/F': 'Db/Fb',
-    'Ab/C': 'Ab/Cb',
+    'G/B': 'Gb/Bb',
+    'C/E': 'Cb/Eb',
   },
-
-  // ==================== 小调（平行大小调） ====================
-
-  'Am': {},
-  'Em': {},
-  'Bm': {
-    'Em/G': 'Em/G#',
-  },
-  'F#m': {
-    'Bm/D': 'Bm/D#',
-  },
-  'C#m': {
-    'F#m/A': 'F#m/A#',
-  },
-  'G#m': {
-    'C#m/E': 'C#m/E#',
-  },
-  'D#m': {
-    'G#m/B': 'G#m/B#',
-  },
-  'A#m': {},
 };
 
 export interface Chord {
