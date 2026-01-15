@@ -717,7 +717,7 @@ async function annotateImage(
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
       const markFontSize = Math.max(20, Math.min(32, Math.round(image.width / 35))); // 增大字号
-      const markText = `由${originalKey}调转为${targetKey}调`;
+      const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
       // 计算文本尺寸

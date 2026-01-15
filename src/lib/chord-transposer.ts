@@ -45,9 +45,9 @@ export const ENHARMONIC_MAP: Record<string, string> = {
   'Bb': 'A#',
 };
 
-// 和弦识别正则表达式（支持升降号在前/后和括号包围）
-// 匹配：C, C#, #C, (D), (D/F#), (#C), G7sus4, Am7, A7sus4, Asus4 等
-const CHORD_REGEX = /^(?:\()?([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?[A-G])([#b])?)?(?:\))?$/i;
+// 和弦识别正则表达式（支持升降号在前/后）
+// 匹配：C, C#, #C, D, D/F#, G7sus4, Am7, A7sus4, Asus4 等
+const CHORD_REGEX = /^([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?[A-G])([#b])?)?$/i;
 
 class ChordTransposer {
   /**
@@ -78,6 +78,14 @@ class ChordTransposer {
     };
     for (const [sup, normal] of Object.entries(superscriptMap)) {
       trimmed = trimmed.replace(new RegExp(sup, 'g'), normal);
+    }
+
+    // 检测是否有括号（必须同时有左右括号）
+    const hasParentheses = trimmed.startsWith('(') && trimmed.endsWith(')');
+
+    // 如果有括号，去掉括号后再匹配
+    if (hasParentheses) {
+      trimmed = trimmed.slice(1, -1);
     }
 
     const match = trimmed.match(CHORD_REGEX);
@@ -121,14 +129,11 @@ class ChordTransposer {
     // 规范化根音为升号形式
     const normalizedRoot = this.normalizeToSharp(root + accidental);
 
-    // 检测是否有括号
-    const hasParentheses = trimmed.startsWith('(') && trimmed.endsWith(')');
-
     const chord: Chord = {
       root: normalizedRoot,
       quality,
       bass: normalizedBass,
-      hasParentheses,
+      hasParentheses, // 使用之前检测到的括号状态
     };
 
     return chord;
@@ -195,6 +200,7 @@ class ChordTransposer {
       bass: newBass,
       x: chord.x,
       y: chord.y,
+      hasParentheses: chord.hasParentheses, // 保留括号标记
     };
   }
 

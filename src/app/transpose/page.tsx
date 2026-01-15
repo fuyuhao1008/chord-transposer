@@ -1024,8 +1024,19 @@ export default function TransposePage() {
                       </label>
                       {isAutoRecognized ? (
                         <div className="space-y-1">
-                          <div className="w-full px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center">
-                            {formatKeyLabel(originalKey)}
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center">
+                              {formatKeyLabel(originalKey)}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setIsAutoRecognized(false)}
+                              className="h-8 px-2 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                            >
+                              修改
+                            </Button>
                           </div>
                           <div className="text-xs text-green-600 dark:text-green-400 text-center">
                             （已自动识别）
