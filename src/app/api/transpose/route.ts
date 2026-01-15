@@ -80,6 +80,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '和弦识别失败' }, { status: 500 });
     }
 
+    // 确定原调（需要用于OCR修正）
+    let originalKey = originalKeyInput;
+    if (!originalKey && recognitionResult.key) {
+      originalKey = chordTransposer.normalizeKey(recognitionResult.key);
+    }
+    if (!originalKey) {
+      originalKey = 'C'; // 默认 C 调
+    }
+
     // 解析识别出的和弦（使用中心点坐标）
     const chords: Chord[] = [];
     const rawCenters = recognitionResult.centers || [];
@@ -156,7 +165,13 @@ export async function POST(request: NextRequest) {
 
           console.log('最终百分比坐标:', { x: x.toFixed(1), y: y.toFixed(1) });
 
-          const parsed = chordTransposer.parseChord(rawCenter.text);
+          // 根据原调修正AI识别的和弦（修正遗漏的升降号）
+          const correctedChordText = chordTransposer.correctChordByKey(rawCenter.text, originalKey);
+          if (correctedChordText !== rawCenter.text) {
+            console.log(`  ✅ OCR修正: ${rawCenter.text} → ${correctedChordText}`);
+          }
+
+          const parsed = chordTransposer.parseChord(correctedChordText);
           if (parsed) {
             chords.push({
               ...parsed,
@@ -207,7 +222,13 @@ export async function POST(request: NextRequest) {
 
           console.log('最终百分比坐标:', { x: x.toFixed(1), y: y.toFixed(1) });
 
-          const parsed = chordTransposer.parseChord(rawCenter.text);
+          // 根据原调修正AI识别的和弦（修正遗漏的升降号）
+          const correctedChordText = chordTransposer.correctChordByKey(rawCenter.text, originalKey);
+          if (correctedChordText !== rawCenter.text) {
+            console.log(`  ✅ OCR修正: ${rawCenter.text} → ${correctedChordText}`);
+          }
+
+          const parsed = chordTransposer.parseChord(correctedChordText);
           if (parsed) {
             chords.push({
               ...parsed,
@@ -242,15 +263,6 @@ export async function POST(request: NextRequest) {
       x: c.x?.toFixed(2),
       y: c.y?.toFixed(2),
     })), null, 2));
-
-    // 确定原调
-    let originalKey = originalKeyInput;
-    if (!originalKey && recognitionResult.key) {
-      originalKey = chordTransposer.normalizeKey(recognitionResult.key);
-    }
-    if (!originalKey) {
-      originalKey = 'C'; // 默认 C 调
-    }
 
     // 执行转调
     let transposeResult;

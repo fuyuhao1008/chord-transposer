@@ -5,6 +5,137 @@
 
 export type ChordQuality = '' | 'm' | 'maj' | 'min' | 'aug' | 'dim' | 'sus2' | 'sus4' | 'add9' | '6' | '7' | 'maj7' | '9' | '11' | '13' | string; // 支持"7sus4"等复合和弦性质
 
+// OCR修正库：根据原调修正AI识别遗漏的升降号
+const OCR_CORRECTION_LIBRARY: Record<string, Record<string, string>> = {
+  // ==================== 升号调 ====================
+
+  // C调（无升降号）
+  'C': {},
+
+  // G调（1个升号：F#）
+  'G': {
+    'D/F': 'D/F#',
+  },
+
+  // D调（2个升号：F#, C#）
+  'D': {
+    'A/C': 'A/C#',
+    'D/F': 'D/F#',
+  },
+
+  // A调（3个升号：F#, C#, G#）
+  'A': {
+    'A/C': 'A/C#',
+    'D/F': 'D/F#',
+    'E/G': 'E/G#',
+    'Fm': 'F#m',
+    'C': 'C#',
+    'C7': 'C#7',
+  },
+
+  // E调（4个升号：F#, C#, G#, D#）
+  'E': {
+    'B/D': 'B/D#',
+    'A/C': 'A/C#',
+    'E/G': 'E/G#',
+  },
+
+  // B调（5个升号：F#, C#, G#, D#, A#）
+  'B': {
+    'F#/A': 'F#/A#',
+    'E/G': 'E/G#',
+    'B/D': 'B/D#',
+  },
+
+  // F#调（6个升号：F#, C#, G#, D#, A#, E#）
+  'F#': {
+    'C#/E': 'C#/E#',
+    'F#/A': 'F#/A#',
+    'B/D': 'B/D#',
+  },
+
+  // C#调（7个升号：F#, C#, G#, D#, A#, E#, B#）
+  'C#': {
+    'F#/A': 'F#/A#',
+    'G#/B': 'G#/B#',
+    'C#/E': 'C#/E#',
+  },
+
+  // ==================== 降号调 ====================
+
+  // F调（1个降号：Bb）
+  'F': {
+    'Bb/D': 'Bb/D',
+  },
+
+  // Bb调（2个降号：Bb, Eb）
+  'Bb': {
+    'Eb/G': 'Eb/G',
+    'G/B': 'G/Bb',
+    'C/E': 'C/Eb',
+  },
+
+  // Eb调（3个降号：Bb, Eb, Ab）
+  'Eb': {
+    'Bb/D': 'Bb/D',
+    'Ab/C': 'Ab/C',
+    'F/A': 'F/Ab',
+    'G/B': 'G/Bb',
+  },
+
+  // Ab调（4个降号：Bb, Eb, Ab, Db）
+  'Ab': {
+    'Eb/G': 'Eb/G',
+    'Db/F': 'Db/F',
+    'F/A': 'F/Ab',
+    'C/E': 'C/Eb',
+  },
+
+  // Db调（5个降号：Bb, Eb, Ab, Db, Gb）
+  'Db': {
+    'Ab/C': 'Ab/C',
+    'Gb/Bb': 'Gb/Bb',
+    'F/A': 'F/Ab',
+    'Eb/G': 'Eb/Gb',
+  },
+
+  // Gb调（6个降号：Bb, Eb, Ab, Db, Gb, Cb）
+  'Gb': {
+    'Db/F': 'Db/F',
+    'Gb/Bb': 'Gb/Bb',
+    'Eb/G': 'Eb/Gb',
+    'Ab/C': 'Ab/Cb',
+  },
+
+  // Cb调（7个降号，实际很少用，通常用B调代替）
+  'Cb': {
+    'Gb/Bb': 'Gb/Bb',
+    'Db/F': 'Db/Fb',
+    'Ab/C': 'Ab/Cb',
+  },
+
+  // ==================== 小调（平行大小调） ====================
+
+  'Am': {},
+  'Em': {},
+  'Bm': {
+    'Em/G': 'Em/G#',
+  },
+  'F#m': {
+    'Bm/D': 'Bm/D#',
+  },
+  'C#m': {
+    'F#m/A': 'F#m/A#',
+  },
+  'G#m': {
+    'C#m/E': 'C#m/E#',
+  },
+  'D#m': {
+    'G#m/B': 'G#m/B#',
+  },
+  'A#m': {},
+};
+
 export interface Chord {
   root: string;        // 根音，如 'C', 'G#'
   quality: ChordQuality; // 和弦性质，如 '', 'm', 'maj7'
@@ -63,6 +194,53 @@ class ChordTransposer {
 
     // 将降号转换为升号
     return ENHARMONIC_MAP[note] || note;
+  }
+
+  /**
+   * 根据原调修正和弦字符串（OCR修正）
+   * 用于修正AI识别时遗漏的升降号
+   * @param chordString 原始和弦字符串
+   * @param originalKey 原调
+   * @returns 修正后的和弦字符串
+   */
+  correctChordByKey(chordString: string, originalKey: string): string {
+    // 规范化和弦字符串
+    let corrected = chordString.trim();
+
+    // 转换上标数字为普通数字（AI可能识别出上标字符）
+    const superscriptMap: Record<string, string> = {
+      '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+      '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+    };
+    for (const [sup, normal] of Object.entries(superscriptMap)) {
+      corrected = corrected.replace(new RegExp(sup, 'g'), normal);
+    }
+
+    // 保存括号状态
+    const hasParentheses = corrected.startsWith('(') && corrected.endsWith(')');
+    if (hasParentheses) {
+      corrected = corrected.slice(1, -1);
+    }
+
+    // 规范化原调（去掉"调"字等后缀）
+    const normalizedKey = this.normalizeKey(originalKey);
+
+    // 检查OCR修正库中是否有针对这个原调的修正规则
+    const corrections = OCR_CORRECTION_LIBRARY[normalizedKey];
+    if (corrections) {
+      // 检查和弦是否在修正库中
+      const replacement = corrections[corrected];
+      if (replacement) {
+        corrected = replacement;
+      }
+    }
+
+    // 恢复括号
+    if (hasParentheses) {
+      corrected = '(' + corrected + ')';
+    }
+
+    return corrected;
   }
 
   /**
