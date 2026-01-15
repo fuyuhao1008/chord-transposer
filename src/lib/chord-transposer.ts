@@ -705,13 +705,59 @@ class ChordTransposer {
     const trimmed = key.trim().toUpperCase();
     // 处理 1=C 格式
     if (trimmed.startsWith('1=')) {
-      return trimmed.replace('1=', '');
+      let result = trimmed.replace('1=', '');
+      return this.normalizeKeyCommonErrors(result);
     }
     // 处理 Key: C 格式
     if (trimmed.startsWith('KEY:')) {
-      return trimmed.replace('KEY:', '');
+      let result = trimmed.replace('KEY:', '');
+      return this.normalizeKeyCommonErrors(result);
     }
-    return trimmed;
+    return this.normalizeKeyCommonErrors(trimmed);
+  }
+
+  /**
+   * 处理AI识别的常见调号错误
+   */
+  private normalizeKeyCommonErrors(key: string): string {
+    let result = key;
+
+    // 移除所有空格（处理 "B B" → "BB" 或 "B b" → "Bb"）
+    result = result.replace(/\s+/g, '');
+
+    // 处理降号调的错误识别（BB → Bb, EE → Eb 等）
+    // 这些情况是AI可能把降号识别成了大写字母
+    const flatMappings: Record<string, string> = {
+      'BB': 'Bb',
+      'EE': 'Eb',
+      'AA': 'Ab',
+      'DD': 'Db',
+      'GG': 'Gb',
+      'CC': 'Cb',
+      'FF': 'F', // F调不需要降号
+    };
+
+    if (flatMappings[result]) {
+      console.log(`⚠️ AI识别调号错误: ${result} → ${flatMappings[result]}`);
+      result = flatMappings[result];
+    }
+
+    // 处理升号调的错误识别（CC# → C#, FF# → F# 等）
+    // 这些情况是AI可能把单个字母识别成了两个相同字母
+    const sharpMappings: Record<string, string> = {
+      'CC#': 'C#',
+      'FF#': 'F#',
+      'GG#': 'G#',
+      'AA#': 'A#',
+      'DD#': 'D#',
+    };
+
+    if (sharpMappings[result]) {
+      console.log(`⚠️ AI识别调号错误: ${result} → ${sharpMappings[result]}`);
+      result = sharpMappings[result];
+    }
+
+    return result;
   }
 }
 
