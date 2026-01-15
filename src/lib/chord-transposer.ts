@@ -288,30 +288,9 @@ class ChordTransposer {
   }
 
   /**
-   * 从复合字符串中提取和弦部分
-   * 例如：从 "CD.S.al.Fine." 中提取 "C"
-   * 例如：从 "DD.S.al.Fine." 中提取 "D"
-   * 识别模式：以音符开始，后面可能紧跟另一个音符或重复记号
-   */
-  private extractChordFromComposite(composite: string): string | null {
-    // 正则表达式匹配：以A-G开头，可能跟升降号，然后可能跟和弦性质
-    // 紧接着可能是另一个音符（开始重复记号）或非和弦字符
-    const chordAtStartRegex = /^([A-G][#b]?[a-z0-9]*)/i;
-    const match = composite.match(chordAtStartRegex);
-
-    if (match && match[1]) {
-      const extracted = match[1];
-      console.log(`  从复合字符串 "${composite}" 中提取和弦: "${extracted}"`);
-      return extracted;
-    }
-
-    return null;
-  }
-
-  /**
    * 解析和弦字符串
    * @param chordString 和弦字符串，如 "C", "Am7", "Gsus4", "C/E", "G7sus4", "#C", "(D)", "(D/F#)", "(#D/F#)"
-   * 也支持复合字符串，如 "CD.S.al.Fine." → "C"
+   * 也支持后缀格式，如 "D7Fine." → "D7", "C D.S.al.Fine." → "C"
    */
   parseChord(chordString: string): Chord | null {
     let trimmed = chordString.trim();
@@ -333,11 +312,21 @@ class ChordTransposer {
       trimmed = trimmed.slice(1, -1);
     }
 
-    // 尝试从复合字符串中提取和弦（例如 "CD.S.al.Fine." → "C"）
-    const extracted = this.extractChordFromComposite(trimmed);
-    if (extracted) {
-      console.log(`  解析复合字符串: "${chordString}" -> "${extracted}"`);
-      trimmed = extracted;
+    // 尝试去除重复记号后缀（D.S.al.Fine., Fine. 等）
+    const suffixes = ['D.S.al.Fine.', 'Fine.'];
+    for (const suffix of suffixes) {
+      if (trimmed.endsWith(suffix)) {
+        trimmed = trimmed.slice(0, -suffix.length).trim();
+        // 如果去掉后缀后是空的，说明整个字符串就是后缀，无法识别
+        if (!trimmed) {
+          return null;
+        }
+      }
+    }
+
+    // 去除可能存在的点号（例如 "C." → "C"）
+    if (trimmed.endsWith('.') && trimmed.length > 1) {
+      trimmed = trimmed.slice(0, -1);
     }
 
     const match = trimmed.match(CHORD_REGEX);

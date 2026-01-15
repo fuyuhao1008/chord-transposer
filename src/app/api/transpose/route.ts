@@ -551,25 +551,16 @@ async function annotateImage(
   try {
     const { createCanvas, loadImage } = require('canvas');
 
-    console.log('========== 开始标注图片 ==========');
-    console.log('和弦数量:', transposeResult.chords.length);
-    console.log('和弦详情:', JSON.stringify(transposeResult.chords, null, 2));
-    console.log('自定义字体大小:', customFontSize);
-    console.log('转调信息:', { originalKey, targetKey });
-
     // 加载原图
     const image = await loadImage(imageBuffer);
     const canvas = createCanvas(image.width, image.height);
     const ctx = canvas.getContext('2d');
-
-    console.log('图片尺寸:', image.width, 'x', image.height);
 
     // 绘制原图
     ctx.drawImage(image, 0, 0);
 
     // 计算字体大小：如果提供了自定义值则使用，否则动态计算
     const fontSize = customFontSize || Math.max(16, Math.min(28, Math.round(image.width / 45)));
-    console.log('实际字体大小:', fontSize);
 
     // 设置字体（用于测量文本）
     ctx.font = `normal ${fontSize}px Arial, Helvetica, sans-serif`;
@@ -596,36 +587,27 @@ async function annotateImage(
       const item = transposeResult.chords[i];
       const chord = item.transposed;
 
-      console.log(`\n--- 和弦 ${i + 1} ---`);
-      console.log('原始和弦:', JSON.stringify(item.original));
-      console.log('转调和弦:', JSON.stringify(chord));
-
       // 检查坐标是否有效
       if (typeof chord.x !== 'number' || typeof chord.y !== 'number' || isNaN(chord.x) || isNaN(chord.y)) {
-        console.warn(`❌ 坐标类型无效:`, typeof chord.x, typeof chord.y, chord.x, chord.y);
         continue;
       }
 
       if (chord.x < 0 || chord.x > 100 || chord.y < 0 || chord.y > 100) {
-        console.warn(`❌ 坐标范围无效:`, chord.x, chord.y);
         continue;
       }
 
       // 转换百分比坐标为实际像素坐标
       const x = Math.round((chord.x / 100) * image.width);
       const y = Math.round((chord.y / 100) * image.height);
-      console.log(`✓ 坐标有效:`, chord.x, chord.y, '-> 像素:', x, y);
 
       // 计算和弦文本
       const chordText = chordTransposer.chordToString(chord);
-      console.log('文本内容:', chordText);
 
       // 测量文本宽度和高度
       const textMetrics = ctx.measureText(chordText);
       const textWidth = textMetrics.width;
       // 估算文本高度（更精确）
       const textHeight = fontSize * 1.1;
-      console.log('文本尺寸:', { width: textWidth, height: textHeight });
 
       // 计算实际绘制矩形（大padding，确保完全覆盖原和弦）
       const drawPadding = fontSize * 0.8; // 大padding，实际绘制用
@@ -640,9 +622,6 @@ async function annotateImage(
       const overlapRectHeight = Math.round(textHeight + overlapPadding * 0.7);
       const overlapRectX = x - overlapRectWidth / 2;
       const overlapRectY = y - overlapRectHeight / 2;
-
-      console.log('绘制矩形(大padding):', { rectX, rectY, rectWidth, rectHeight });
-      console.log('重叠检测矩形(小padding):', { overlapRectX, overlapRectY, overlapRectWidth, overlapRectHeight });
 
       chordDrawInfos.push({
         chordText,
@@ -660,11 +639,7 @@ async function annotateImage(
       });
     }
 
-    console.log('========== 计算完成，准备绘制 ==========');
-    console.log('和弦数量:', chordDrawInfos.length);
-
     // 第二步：检测重叠并调整颜色（按位置交替变化）
-    console.log('\n========== 检测重叠 ==========');
     // 1. 检测所有重叠的和弦（使用小padding的矩形进行检测）
     const overlappingChords: number[] = []; // 存储重叠和弦的索引
 
@@ -681,7 +656,6 @@ async function annotateImage(
           current.overlapRectX, current.overlapRectY, current.overlapRectWidth, current.overlapRectHeight,
           other.overlapRectX, other.overlapRectY, other.overlapRectWidth, other.overlapRectHeight
         )) {
-          console.log(`⚠️ 检测到重叠: 和弦${i+1} "${current.chordText}" 与 和弦${j+1} "${other.chordText}"`);
           hasOverlap = true;
           break;
         }
@@ -695,18 +669,12 @@ async function annotateImage(
     // 2. 将重叠的和弦按照x坐标（从左到右）排序
     overlappingChords.sort((a, b) => chordDrawInfos[a].x - chordDrawInfos[b].x);
 
-    console.log(`重叠和弦总数: ${overlappingChords.length}`);
-    console.log(`重叠和弦索引（按x排序）: ${overlappingChords.map(i => i + 1).join(', ')}`);
-
     // 3. 按排序顺序交替分配颜色（第1个原色，第2个浅色，第3个原色...）
     for (let k = 0; k < overlappingChords.length; k++) {
       const i = overlappingChords[k]; // 原始索引
       if (k % 2 === 1) {
         // 偶数索引（第2、4、6...个）使用浅色
         chordDrawInfos[i].color = lightenColor(chordColor, 0.4);
-        console.log(`  → 和弦${i+1} "${chordDrawInfos[i].chordText}" 排序位置${k+1}，使用调淡色`);
-      } else {
-        console.log(`  → 和弦${i+1} "${chordDrawInfos[i].chordText}" 排序位置${k+1}，使用原色`);
       }
     }
 
@@ -722,8 +690,6 @@ async function annotateImage(
       ctx.fill();
     }
 
-    console.log('✓ 已绘制所有背景框');
-
     // 第三步：绘制所有文本（在最顶层）
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -731,11 +697,7 @@ async function annotateImage(
       // 绘制和弦文本（使用 middle 基线，确保文本中心对齐坐标点）
       ctx.fillStyle = info.color; // 使用调整后的颜色（可能是原色或调淡色）
       ctx.fillText(info.chordText, info.x, info.y);
-      console.log(`✓ 已绘制文本: ${info.chordText} 在 (${info.x}, ${info.y}), 颜色: ${info.color}`);
     }
-
-    console.log('\n========== 标注完成 ==========');
-    console.log('成功绘制的和弦数:', chordDrawInfos.length, '/', transposeResult.chords.length);
 
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
@@ -774,12 +736,10 @@ async function annotateImage(
     // 转换为 Buffer
     const resultBuffer = canvas.toBuffer('image/jpeg', { quality: 0.95 });
 
-    console.log('图片合成完成，大小:', resultBuffer.length);
-
     // 返回 base64 格式
     return `data:image/jpeg;base64,${resultBuffer.toString('base64')}`;
   } catch (error) {
-    console.error('❌ 图片标注失败:', error);
+    console.error('图片标注失败:', error);
     // 失败时返回原图
     return `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
   }
