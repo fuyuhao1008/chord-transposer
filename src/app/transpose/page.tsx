@@ -644,9 +644,7 @@ export default function TransposePage() {
       if (data.originalKey) {
         setOriginalKey(data.originalKey);
         setIsAutoRecognized(true); // 标记为AI自动识别
-        // 自动设置默认目标调为C调
-        setTargetKey('C');
-        console.log('🎵 自动识别原调成功:', data.originalKey, '，已设置默认目标调: C');
+        console.log('🎵 自动识别原调成功:', data.originalKey);
       } else {
         setIsAutoRecognized(false); // 未识别到，标记为非自动识别
         console.log('⚠️ 未识别到原调');
@@ -838,12 +836,15 @@ export default function TransposePage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Music className="w-10 h-10 text-indigo-600" />
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-              简谱和弦转调器
+            <h1
+              className="text-4xl font-bold text-gray-900 dark:text-white"
+              style={{ fontFamily: '"Noto Serif SC", "Georgia", serif' }}
+            >
+              琴献馨香
             </h1>
           </div>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            上传简谱图片，自动识别和弦并转调到任意调性
+            上传简谱图片，可进行和弦转调，输出新图
           </p>
         </div>
 
@@ -1273,6 +1274,11 @@ export default function TransposePage() {
                             )}
                           </Button>
                         </div>
+                      </div>
+
+                      {/* 红色提示文字 */}
+                      <div className="text-center text-sm text-red-600 dark:text-red-400 py-2">
+                        若和弦记号明显偏离原位，请点击"重新生成图片"
                       </div>
 
                       {/* 结果图片 */}

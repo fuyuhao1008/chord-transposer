@@ -1,5 +1,11 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect } from 'react';
 
 export default function Home() {
-  redirect('/transpose');
+  useEffect(() => {
+    window.location.href = '/transpose';
+  }, []);
+
+  return null;
 }
