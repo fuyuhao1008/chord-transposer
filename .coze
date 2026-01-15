@@ -1,14 +1,10 @@
 [project]
-entrypoint = "index.html"
 requires = ["nodejs-24"]
 
 [dev]
-build = ["bash", "./scripts/prepare.sh"]
-run = ["bash", "./scripts/dev.sh"]
-deps = ["git"]
+build = ["pnpm", "install"]
+run = ["pnpm", "dev", "--port", "5000"]
 
 [deploy]
-build = ["bash","./scripts/build.sh"]
-run = ["bash","./scripts/start.sh"]
-port = 5000
-deps = ["git"]
+build = ["bash", "-c", "pnpm install --no-frozen-lockfile && pnpm build"]
+run = ["sh", "-c", "cd .next/standalone/workspace/projects && PORT=5000 node server.js"]

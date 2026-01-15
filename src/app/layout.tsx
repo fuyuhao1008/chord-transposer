@@ -1,33 +1,53 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ErrorBoundary } from '@/components/error-boundary';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
-
 export const metadata: Metadata = {
   title: {
-    default: '简谱和弦转调器',
-    template: '%s | 简谱和弦转调器',
+    default: '琴献馨香',
+    template: '%s | 琴献馨香',
   },
   description:
-    '基于AI驱动的简谱和弦自动转调工具，支持上传简谱图片，自动识别和弦并转调到任意调性。',
+    '上传简谱图片，可进行和弦转调，输出新图。基于AI驱动的智能和弦转调工具，支持12个调性转换，自动在原图上原位替换和弦。',
   keywords: [
     '简谱',
     '和弦转调',
     'AI识别',
-    '音乐工具',
+    '音乐转调',
+    '自动转调',
+    '智能和弦',
+    '转调工具',
+    '音乐助手',
   ],
-  authors: [{ name: 'Coze Code Team', url: 'https://code.coze.cn' }],
-  generator: 'Coze Code',
+  authors: [{ name: '琴献馨香', url: '' }],
+  generator: '琴献馨香',
+  // icons: {
+  //   icon: '',
+  // },
+  openGraph: {
+    title: '琴献馨香 | 简谱和弦智能转调工具',
+    description:
+      '上传简谱图片，可进行和弦转调，输出新图。基于AI驱动的智能和弦转调工具，支持12个调性转换。',
+    url: '',
+    siteName: '琴献馨香',
+    locale: 'zh_CN',
+    type: 'website',
+    // images: [
+    //   {
+    //     url: '',
+    //     width: 1200,
+    //     height: 630,
+    //     alt: '琴献馨香 - 简谱和弦转调工具',
+    //   },
+    // ],
+  },
+  // twitter: {
+  //   card: 'summary_large_image',
+  //   title: '琴献馨香 | 简谱和弦智能转调工具',
+  //   description:
+  //     '上传简谱图片，自动识别和弦并转调到任意调性。基于AI驱动的智能和弦转调工具，支持12个调性转换。',
+  //   // images: [''],
+  // },
   robots: {
     index: true,
     follow: true,
@@ -41,9 +61,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
