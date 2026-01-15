@@ -94,9 +94,7 @@ const OCR_CORRECTION_LIBRARY: Record<string, Record<string, string>> = {
    * ====================== */
 
   // F 调（1♭：Bb）
-  'F': {
-    'Bb/D': 'Bb/D',
-  },
+  'F': {},
 
   // Bb 调（2♭：Bb, Eb）
   'Bb': {
@@ -185,6 +183,7 @@ export const CHROMATIC_SCALE = [
 
 // 等音转换映射（根据用户要求）
 // D# → bE, A# → bB
+// 注意：键值都是规范化的形式（大写字母，# 在字母后）
 export const ENHARMONIC_MAP: Record<string, string> = {
   'C#': 'Db',
   'D#': 'Eb',
@@ -207,7 +206,7 @@ const CHORD_REGEX = /^([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?)([A-G])([#b]?
 class ChordTransposer {
   /**
    * 规范化音符为升号形式（用于内部处理）
-   * 如 bB -> A#, bE -> D#
+   * 如 bB -> A#, bE -> D#, Bb -> A#, #F -> F#
    */
   private normalizeToSharp(note: string): string {
     // 处理极端音记：E# → F, Fb → E, B# → C, Cb → B
@@ -219,13 +218,26 @@ class ChordTransposer {
       return extremeNoteMap[note];
     }
 
+    // 规范化升降号位置：升降号在字母前移到字母后
+    let normalized = note;
+    const match = note.match(/^([b#]?)([A-G])([b#]?)$/i);
+    if (match) {
+      const [, accFront, root, accBack] = match;
+      // 合并升降号（优先使用前面的）
+      if (accFront) {
+        normalized = root + accFront; // #F -> F#, bE -> Eb
+      } else {
+        normalized = root + (accBack || ''); // F# -> F#, C -> C
+      }
+    }
+
     // 检查是否已经是升号或基本音
-    if (CHROMATIC_SCALE.includes(note)) {
-      return note;
+    if (CHROMATIC_SCALE.includes(normalized)) {
+      return normalized;
     }
 
     // 将降号转换为升号
-    return ENHARMONIC_MAP[note] || note;
+    return ENHARMONIC_MAP[normalized] || normalized;
   }
 
   /**
@@ -390,31 +402,31 @@ class ChordTransposer {
    * 转调单个和弦
    * @param chord 和弦对象
    * @param semitones 半音数
-   * @param useEnharmonic 是否使用等音（如 Eb 代替 D#）
+   * @param useFlats 是否使用降号形式（如 Eb 代替 D#）
    */
-  transposeChord(chord: Chord, semitones: number, useEnharmonic: boolean = true): Chord {
+  transposeChord(chord: Chord, semitones: number, useFlats: boolean = false): Chord {
     console.log(`  转调单个和弦: ${chord.root}${chord.quality}${chord.bass ? '/' + chord.bass : ''}`);
-    console.log(`  根音: ${chord.root}, 低音: ${chord.bass || '无'}, 半音数: ${semitones}, 等音: ${useEnharmonic}`);
+    console.log(`  根音: ${chord.root}, 低音: ${chord.bass || '无'}, 半音数: ${semitones}, 降号形式: ${useFlats}`);
 
     let newRoot = this.shiftNote(chord.root, semitones);
     let newBass = chord.bass ? this.shiftNote(chord.bass, semitones) : undefined;
 
     console.log(`  转调后 - 根音: ${newRoot}, 低音: ${newBass || '无'}`);
 
-    // 如果使用等音，对结果进行等音转换
-    if (useEnharmonic) {
+    // 如果使用降号形式，对结果进行等音转换
+    if (useFlats) {
       if (newRoot) {
-        // 根据用户要求：D# → Eb, A# → Bb
+        // 根据用户要求：D# → Eb, A# → Bb, F# → Gb
         const mappedRoot = ENHARMONIC_MAP[newRoot];
         if (mappedRoot) {
-          console.log(`  等音映射: ${newRoot} -> ${mappedRoot}`);
+          console.log(`  等音映射(降号形式): ${newRoot} -> ${mappedRoot}`);
           newRoot = mappedRoot;
         }
       }
       if (newBass) {
         const mappedBass = ENHARMONIC_MAP[newBass];
         if (mappedBass) {
-          console.log(`  低音等音映射: ${newBass} -> ${mappedBass}`);
+          console.log(`  低音等音映射(降号形式): ${newBass} -> ${mappedBass}`);
           newBass = mappedBass;
         }
       }
@@ -504,7 +516,7 @@ class ChordTransposer {
    * @param chords 和弦列表
    * @param originalKey 原调
    * @param semitones 半音数（正数表示升，负数表示降）
-   * @param useEnharmonic 是否使用等音
+   * @param useEnharmonic 是否使用等音（废弃，参数保留以兼容）
    */
   transposeChordsBySemitones(
     chords: Chord[],
@@ -520,17 +532,18 @@ class ChordTransposer {
     const targetIndex = ((originalIndex + semitones) % 12 + 12) % 12;
     let targetKeyCalculated = CHROMATIC_SCALE[targetIndex];
 
-    // 应用等音转换
-    if (useEnharmonic) {
-      targetKeyCalculated = ENHARMONIC_MAP[targetKeyCalculated] || targetKeyCalculated;
-    }
+    // 根据目标调决定是否使用降号形式
+    const flatKeys = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'];
+    const shouldUseFlats = flatKeys.includes(targetKeyCalculated);
+
+    console.log(`transposeChordsBySemitones: 原调 ${originalKey} 升${semitones} -> 目标调 ${targetKeyCalculated}, 降号形式: ${shouldUseFlats}`);
 
     return {
       originalKey,
       targetKey: targetKeyCalculated,
       semitones,
       chords: chords.map(chord => {
-        const transposed = this.transposeChord(chord, semitones, useEnharmonic);
+        const transposed = this.transposeChord(chord, semitones, shouldUseFlats);
         // 修正不可能的和弦（如 G/A# -> G/B）
         return {
           original: chord,
