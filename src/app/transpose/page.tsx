@@ -644,8 +644,12 @@ export default function TransposePage() {
       if (data.originalKey) {
         setOriginalKey(data.originalKey);
         setIsAutoRecognized(true); // 标记为AI自动识别
+        // 自动设置默认目标调为C调
+        setTargetKey('C');
+        console.log('🎵 自动识别原调成功:', data.originalKey, '，已设置默认目标调: C');
       } else {
         setIsAutoRecognized(false); // 未识别到，标记为非自动识别
+        console.log('⚠️ 未识别到原调');
       }
     } catch (error) {
       console.error('自动识别原调失败:', error);
@@ -669,24 +673,35 @@ export default function TransposePage() {
 
   // 自动计算半音数和方向（优先选择小的）
   useEffect(() => {
+    console.log('🎵 转调计算触发:', { originalKey, targetKey });
     if (originalKey && originalKey !== 'auto' && targetKey) {
       const originalIndex = getKeyIndex(originalKey);
       const targetIndex = getKeyIndex(targetKey);
+
+      console.log('🔢 调号索引:', { originalIndex, targetIndex });
 
       if (originalIndex !== -1 && targetIndex !== -1) {
         // 计算两个可能的半音数
         const upSemitones = (targetIndex - originalIndex + 12) % 12;
         const downSemitones = (originalIndex - targetIndex + 12) % 12;
 
+        console.log('📊 半音数:', { upSemitones, downSemitones });
+
         // 优先选择半音数较小的方向
         if (upSemitones <= downSemitones) {
           setDirection('up');
           setSemitones(upSemitones);
+          console.log('✅ 设置方向: up, 半音数:', upSemitones);
         } else {
           setDirection('down');
           setSemitones(downSemitones);
+          console.log('✅ 设置方向: down, 半音数:', downSemitones);
         }
+      } else {
+        console.error('❌ 调号索引无效:', { originalIndex, targetIndex });
       }
+    } else {
+      console.log('⏭️ 跳过计算: originalKey或targetKey为空或为auto');
     }
   }, [targetKey, originalKey]);
 
@@ -1087,7 +1102,18 @@ export default function TransposePage() {
 
                     {/* 开始转调按钮 */}
                     <Button
-                      onClick={handleTranspose}
+                      onClick={() => {
+                        console.log('🔘 按钮点击:', { targetKey, direction, semitones });
+                        console.log('🔘 按钮禁用条件:', {
+                          noTargetKey: !targetKey,
+                          noDirection: !direction,
+                              emptySemitones: semitones === '',
+                          targetKey,
+                          direction,
+                          semitones
+                        });
+                        handleTranspose();
+                      }}
                       disabled={!targetKey || !direction || semitones === ''}
                       className="w-full"
                       size="lg"
