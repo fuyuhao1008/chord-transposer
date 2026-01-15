@@ -579,7 +579,7 @@ export default function TransposePage() {
     const circleOuterSize = 60 * scaleFactor; // 外圆直径
     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
     // 文字框实际尺寸（根据文字内容计算）
-    const textWidth = 240 * scaleFactor; // 文字框宽度（更精确，略微缩小）
+    const textWidth = 236 * scaleFactor; // 文字框宽度（微调以对齐红点）
     const textHeight = 70 * scaleFactor; // 文字框高度（两行文字）
     const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
     const totalHeight = Math.max(circleOuterSize, textHeight); // 总高度
@@ -922,7 +922,7 @@ export default function TransposePage() {
                     const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
                     const circleOuterSize = 60 * scaleFactor; // 外圆直径
                     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
-                    const textWidth = 240 * scaleFactor; // 文字框宽度（与isTouchOnMarker保持一致）
+                    const textWidth = 236 * scaleFactor; // 文字框宽度（微调以对齐红点）
 
                     return (
                       <div

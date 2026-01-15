@@ -251,10 +251,14 @@ class ChordTransposer {
       originalKey,
       targetKey,
       semitones,
-      chords: chords.map(chord => ({
-        original: chord,
-        transposed: this.transposeChord(chord, semitones, shouldUseFlats),
-      })),
+      chords: chords.map(chord => {
+        const transposed = this.transposeChord(chord, semitones, shouldUseFlats);
+        // 修正不可能的和弦（如 G/A# -> G/B）
+        return {
+          original: chord,
+          transposed: this.correctUnreasonableChord(transposed),
+        };
+      }),
     };
   }
 
@@ -291,10 +295,96 @@ class ChordTransposer {
       originalKey,
       targetKey: targetKeyCalculated,
       semitones,
-      chords: chords.map(chord => ({
-        original: chord,
-        transposed: this.transposeChord(chord, semitones, shouldUseFlats),
-      })),
+      chords: chords.map(chord => {
+        const transposed = this.transposeChord(chord, semitones, shouldUseFlats);
+        // 修正不可能的和弦（如 G/A# -> G/B）
+        return {
+          original: chord,
+          transposed: this.correctUnreasonableChord(transposed),
+        };
+      }),
+    };
+  }
+
+  /**
+   * 判断和弦是否"不可能"（根音与低音形成极不和谐的音程）
+   * 不允许减音程（除了减五度）
+   * @param chord 和弦对象
+   */
+  private isUnreasonableChord(chord: Chord): boolean {
+    if (!chord.bass) return false;
+
+    const rootIndex = CHROMATIC_SCALE.findIndex(n => n === chord.root);
+    const bassIndex = CHROMATIC_SCALE.findIndex(n => n === chord.bass);
+
+    if (rootIndex === -1 || bassIndex === -1) return false;
+
+    // 计算根音到低音的音程（向下）
+    let interval = bassIndex - rootIndex;
+    if (interval < 0) interval += 12;
+
+    // 判断是否为减音程（小二度=1，减三度=2，减七度=6）
+    // 减音程通常非常不和谐，除了减五度（6半音）是功能性和弦
+    const isDiminishedInterval = [1, 2].includes(interval);
+    const isDiminishedFifth = interval === 6;
+
+    // 减五度是功能性和弦（如 G/D# 是 G 的减五度），但仍然不常用
+    // 这里我们仅禁止小二度和减三度
+    return isDiminishedInterval;
+  }
+
+  /**
+   * 修正不可能的和弦
+   * 规则：
+   * 1. 如果和弦不合理（根音与低音形成减音程，除了减五度）
+   * 2. 寻找距离原低音最近的合理低音（保持和弦性质）
+   * 3. 如果找不到，则移除低音
+   * @param chord 和弦对象
+   */
+  correctUnreasonableChord(chord: Chord): Chord {
+    // 如果没有低音或和弦合理，直接返回
+    if (!chord.bass || !this.isUnreasonableChord(chord)) {
+      return chord;
+    }
+
+    // 尝试找到合理的低音
+    const rootIndex = CHROMATIC_SCALE.findIndex(n => n === chord.root);
+    const originalBassIndex = CHROMATIC_SCALE.findIndex(n => n === chord.bass!);
+
+    if (rootIndex === -1 || originalBassIndex === -1) {
+      return { ...chord, bass: undefined };
+    }
+
+    // 遍历所有可能的低音，找到距离原低音最近且合理的
+    let bestBass: string | undefined = undefined;
+    let bestDistance = 13; // 最大距离是6，初始化为大于6的值
+
+    for (let i = 0; i < 12; i++) {
+      const candidateBass = CHROMATIC_SCALE[i];
+      const testChord = { ...chord, bass: candidateBass };
+
+      // 检查是否合理
+      if (this.isUnreasonableChord(testChord)) {
+        continue; // 不合理，跳过
+      }
+
+      // 计算与原低音的距离（取最小路径）
+      let distance = Math.abs(i - originalBassIndex);
+      if (distance > 6) {
+        distance = 12 - distance;
+      }
+
+      // 优先选择距离更近的
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestBass = candidateBass;
+      }
+    }
+
+    // 如果找到合理的低音，使用它；否则移除低音
+    return {
+      ...chord,
+      bass: bestBass,
     };
   }
 
