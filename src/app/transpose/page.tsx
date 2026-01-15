@@ -245,30 +245,35 @@ export default function TransposePage() {
   const draggingIndexRef = useRef<number | null>(null);
   const initialTouchPosRef = useRef<{ x: number; y: number } | null>(null);
   const touchMovedTooMuchRef = useRef<boolean>(false);
-  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const dragOffsetRef = useRef<{ x: number; y: number } | null>(null); // 记录拖动时的鼠标偏移量
   const activePointersRef = useRef<Set<number>>(new Set()); // 跟踪活跃的pointer ID
 
   // 检测移动端设备
   useEffect(() => {
+    console.log('📱 开始检测移动端设备...');
     try {
       const checkMobile = () => {
+        console.log('📱 检查移动端状态...');
         if (typeof navigator === 'undefined' || typeof window === 'undefined') {
+          console.log('⚠️ navigator或window未定义，跳过移动端检测');
           return;
         }
 
         try {
           const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+          console.log('📱 UserAgent:', userAgent.substring(0, 100));
           // 检测常见的移动端User-Agent
           const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
           const isMobileDevice = mobileRegex.test(userAgent);
           // 同时也检查屏幕宽度作为备用
           const isSmallScreen = window.innerWidth < 768;
+          console.log('📱 检测结果:', { isMobileDevice, isSmallScreen, width: window.innerWidth });
 
           const isMobileResult = isMobileDevice || isSmallScreen;
           setIsMobile(isMobileResult);
+          console.log('✅ 移动端检测完成:', isMobileResult);
         } catch (error) {
-          console.error('检测移动端失败:', error);
+          console.error('❌ 检测移动端失败:', error);
           // 出错时默认为非移动端
           setIsMobile(false);
         }
@@ -278,7 +283,7 @@ export default function TransposePage() {
       window.addEventListener('resize', checkMobile);
       return () => window.removeEventListener('resize', checkMobile);
     } catch (error) {
-      console.error('初始化移动端检测失败:', error);
+      console.error('❌ 初始化移动端检测失败:', error);
     }
   }, []);
 
@@ -559,34 +564,6 @@ export default function TransposePage() {
   };
 
   // 处理标记拖拽开始
-  const handleMarkerMouseDown = (event: React.MouseEvent, index: number) => {
-    event.stopPropagation();
-    setDraggingIndex(index);
-    // 记录鼠标按下位置，用于区分点击和拖动
-    mouseDownPosRef.current = { x: event.clientX, y: event.clientY };
-  };
-
-  // 处理标记拖拽移动
-  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (draggingIndex === null) return;
-
-    const container = imageContainerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
-
-    const newPoints = [...anchorPoints];
-    newPoints[draggingIndex] = { x, y };
-    setAnchorPoints(newPoints);
-  };
-
-  // 处理标记拖拽结束
-  const handleMouseUp = () => {
-    setDraggingIndex(null);
-  };
-
   // 判断指针位置是否在某个图标区域内（考虑新图标的实际尺寸）
   const isTouchOnMarker = (pointerX: number, pointerY: number): number | null => {
     try {
@@ -952,9 +929,6 @@ export default function TransposePage() {
                   onPointerUp={handlePointerUp}
                   onPointerCancel={handlePointerCancel}
                   onContextMenu={handleContextMenu}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
                 >
                   <img
                     key={imageKey}
@@ -996,18 +970,6 @@ export default function TransposePage() {
                           WebkitTouchCallout: 'none',
                           touchAction: 'none',
                         }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // 只在桌面端且移动距离小于5px时才视为点击（避免拖动后触发点击）
-                          if (!isMobile && mouseDownPosRef.current) {
-                            const deltaX = Math.abs(e.clientX - mouseDownPosRef.current.x);
-                            const deltaY = Math.abs(e.clientY - mouseDownPosRef.current.y);
-                            if (deltaX < 5 && deltaY < 5 && index === 0) {
-                              handleRelocateFirst();
-                            }
-                          }
-                        }}
-                        onMouseDown={(e) => handleMarkerMouseDown(e, index)}
                       >
                         {/* 使用新的CalibrationMarker组件 */}
                         <CalibrationMarker
