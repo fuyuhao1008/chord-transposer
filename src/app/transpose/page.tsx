@@ -1047,10 +1047,10 @@ export default function TransposePage() {
                       )}
                     </div>
 
-                    {/* 目标配 */}
+                    {/* 目标调 */}
                     <div>
                       <label className="block text-sm font-medium mb-2">
-                        目标配
+                        目标调
                       </label>
                       <div className="flex items-center gap-3">
                         <Select value={targetKey} onValueChange={setTargetKey}>
