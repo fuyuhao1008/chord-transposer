@@ -246,7 +246,6 @@ export default function TransposePage() {
   const initialTouchPosRef = useRef<{ x: number; y: number } | null>(null);
   const touchMovedTooMuchRef = useRef<boolean>(false);
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
-  const isMobileRef = useRef<boolean>(false); // 使用ref而不是state，避免闭包问题
   const dragOffsetRef = useRef<{ x: number; y: number } | null>(null); // 记录拖动时的鼠标偏移量
   const activePointersRef = useRef<Set<number>>(new Set()); // 跟踪活跃的pointer ID
 
@@ -268,12 +267,10 @@ export default function TransposePage() {
 
           const isMobileResult = isMobileDevice || isSmallScreen;
           setIsMobile(isMobileResult);
-          isMobileRef.current = isMobileResult; // 同步到ref
         } catch (error) {
           console.error('检测移动端失败:', error);
           // 出错时默认为非移动端
           setIsMobile(false);
-          isMobileRef.current = false;
         }
       };
 
@@ -599,8 +596,8 @@ export default function TransposePage() {
       if (typeof window === 'undefined') return null;
 
       const rect = container.getBoundingClientRect();
-      // 使用ref中的移动端状态，避免重复访问window
-      const isCurrentlyMobile = isMobileRef.current;
+      // 使用isMobile状态，避免重复访问window
+      const isCurrentlyMobile = isMobile;
       const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
 
       // 新图标尺寸参数（精确计算）
@@ -971,8 +968,8 @@ export default function TransposePage() {
                   {anchorPoints.map((point, index) => {
                     const isLongPressed = longPressedIndex === index;
                     const isDragging = draggingIndex === index;
-                    // 使用ref中缓存的移动端状态，避免在JSX渲染中访问window
-                    const isCurrentlyMobile = isMobileRef.current;
+                    // 使用isMobile状态，避免在JSX渲染中访问window
+                    const isCurrentlyMobile = isMobile;
                     const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
                     const circleOuterSize = 60 * scaleFactor; // 外圆直径
                     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
