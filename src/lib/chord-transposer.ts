@@ -47,7 +47,8 @@ export const ENHARMONIC_MAP: Record<string, string> = {
 
 // 和弦识别正则表达式（支持升降号在前/后）
 // 匹配：C, C#, #C, D, D/F#, G7sus4, Am7, A7sus4, Asus4 等
-const CHORD_REGEX = /^([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?[A-G])([#b])?)?$/i;
+// 修正：低音部分使用三个独立的匹配组，避免丢失升降号
+const CHORD_REGEX = /^([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?)([A-G])([#b]?))?$/i;
 
 class ChordTransposer {
   /**
@@ -94,7 +95,7 @@ class ChordTransposer {
       return null;
     }
 
-    const [, accidentalFront, root, accidentalBack, qualityPart, bassPart, bassAccidental] = match;
+    const [, accidentalFront, root, accidentalBack, qualityPart, bassAccFront, bassRoot, bassAccBack] = match;
 
     // 合并升降号（优先使用前面的）
     const accidental = accidentalFront || accidentalBack || '';
@@ -117,13 +118,9 @@ class ChordTransposer {
 
     // 解析转位低音（格式：/F#, /bE, /#C等）
     let normalizedBass: string | undefined;
-    if (bassPart) {
-      const bassMatch = bassPart.match(/^([#b]?)([A-G])([#b]?)$/i);
-      if (bassMatch) {
-        const [, bassAccFront, bassRoot, bassAccBack] = bassMatch;
-        const bassAccidental = bassAccFront || bassAccBack || '';
-        normalizedBass = this.normalizeToSharp(bassRoot + bassAccidental);
-      }
+    if (bassRoot) {
+      const bassAccidental = bassAccFront || bassAccBack || '';
+      normalizedBass = this.normalizeToSharp(bassRoot + bassAccidental);
     }
 
     // 规范化根音为升号形式
@@ -308,7 +305,16 @@ class ChordTransposer {
 
   /**
    * 判断和弦是否"不可能"（根音与低音形成极不和谐的音程）
-   * 不允许减音程（除了减五度）
+   * 判断规则：
+   * 1. 只禁止极度不和谐的小二度（1半音）和减三度（3半音）
+   * 2. 其他音程都允许，包括：
+   *    - 同音（0半音）
+   *    - 大二度（2半音）：如 C/D
+   *    - 大三度（4半音）：如 C/E
+   *    - 纯四度（5半音）：如 C/F
+   *    - 增四度/减五度（6半音）：如 C/F#，爵士乐中常见
+   *    - 纯五度（7半音）：如 C/G
+   *    - 其他音程（8-11半音）：如 C-Ab(8), C-A(9), C-Bb(10), C-B(11)
    * @param chord 和弦对象
    */
   private isUnreasonableChord(chord: Chord): boolean {
@@ -319,25 +325,23 @@ class ChordTransposer {
 
     if (rootIndex === -1 || bassIndex === -1) return false;
 
-    // 计算根音到低音的音程（向下）
+    // 计算根音到低音的音程（向上0-11半音）
     let interval = bassIndex - rootIndex;
     if (interval < 0) interval += 12;
 
-    // 判断是否为减音程（小二度=1，减三度=2，减七度=6）
-    // 减音程通常非常不和谐，除了减五度（6半音）是功能性和弦
-    const isDiminishedInterval = [1, 2].includes(interval);
-    const isDiminishedFifth = interval === 6;
+    // 只禁止极度不和谐的音程：
+    // 1. 小二度（1半音）：如 C-Db，极度不和谐
+    // 2. 减三度（3半音）：如 C-Eb，不和谐
+    const unacceptableIntervals = [1, 3];
 
-    // 减五度是功能性和弦（如 G/D# 是 G 的减五度），但仍然不常用
-    // 这里我们仅禁止小二度和减三度
-    return isDiminishedInterval;
+    return unacceptableIntervals.includes(interval);
   }
 
   /**
    * 修正不可能的和弦
    * 规则：
-   * 1. 如果和弦不合理（根音与低音形成减音程，除了减五度）
-   * 2. 寻找距离原低音最近的合理低音（保持和弦性质）
+   * 1. 如果和弦不合理，找到距离原低音最近的合理低音
+   * 2. 优先选择常用的和弦转位音程（2, 4, 5, 7），其次选择其他音程
    * 3. 如果找不到，则移除低音
    * @param chord 和弦对象
    */
@@ -347,7 +351,6 @@ class ChordTransposer {
       return chord;
     }
 
-    // 尝试找到合理的低音
     const rootIndex = CHROMATIC_SCALE.findIndex(n => n === chord.root);
     const originalBassIndex = CHROMATIC_SCALE.findIndex(n => n === chord.bass!);
 
@@ -355,10 +358,15 @@ class ChordTransposer {
       return { ...chord, bass: undefined };
     }
 
-    // 遍历所有可能的低音，找到距离原低音最近且合理的
+    // 常用的和弦转位音程（相对于根音的半音数）
+    // 2: 9音，4: 3音，5: 11音，7: 5音（不包括同音0）
+    const preferredIntervals = [2, 4, 5, 7];
+
     let bestBass: string | undefined = undefined;
     let bestDistance = 13; // 最大距离是6，初始化为大于6的值
+    let isPreferred = false; // 是否找到了首选音程
 
+    // 遍历所有可能的低音
     for (let i = 0; i < 12; i++) {
       const candidateBass = CHROMATIC_SCALE[i];
       const testChord = { ...chord, bass: candidateBass };
@@ -374,10 +382,21 @@ class ChordTransposer {
         distance = 12 - distance;
       }
 
-      // 优先选择距离更近的
-      if (distance < bestDistance) {
+      // 计算相对于根音的音程
+      let interval = i - rootIndex;
+      if (interval < 0) interval += 12;
+
+      // 判断是否为常用音程
+      const candidateIsPreferred = preferredIntervals.includes(interval);
+
+      // 优先级：
+      // 1. 常用音程优先于非常用音程
+      // 2. 同等优先级下，距离更近的优先
+      if (!bestBass || candidateIsPreferred > isPreferred ||
+          (candidateIsPreferred === isPreferred && distance < bestDistance)) {
         bestDistance = distance;
         bestBass = candidateBass;
+        isPreferred = candidateIsPreferred;
       }
     }
 

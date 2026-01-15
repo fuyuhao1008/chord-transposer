@@ -1235,10 +1235,10 @@ export default function TransposePage() {
                             {isAdjusting ? (
                               <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                调整中
+                                生成中
                               </>
                             ) : (
-                              '应用'
+                              '重新生成图片'
                             )}
                           </Button>
                         </div>

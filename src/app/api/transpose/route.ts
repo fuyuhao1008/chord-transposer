@@ -612,7 +612,7 @@ async function annotateImage(
       // 计算实际绘制矩形（大padding，确保完全覆盖原和弦）
       const drawPadding = fontSize * 0.8; // 大padding，实际绘制用
       const rectWidth = Math.round(textWidth + drawPadding * 2);
-      const rectHeight = Math.round(textHeight + drawPadding * 0.7);
+      const rectHeight = Math.round(textHeight + drawPadding * 0.63); // 纵向padding减少10%
       const rectX = x - rectWidth / 2;
       const rectY = y - rectHeight / 2;
 
@@ -692,11 +692,16 @@ async function annotateImage(
       }
     }
 
-    // 第二步：绘制所有白色背景框
+    // 第二步：绘制所有白色背景框（圆角矩形）
     for (const info of chordDrawInfos) {
-      // 绘制白色背景矩形（覆盖原和弦，无边框）
+      // 计算圆角半径（字体大小的20%，最大不超过8px）
+      const cornerRadius = Math.min(fontSize * 0.2, 8);
+
+      // 绘制白色背景圆角矩形（覆盖原和弦，无边框）
       ctx.fillStyle = 'white';
-      ctx.fillRect(info.rectX, info.rectY, info.rectWidth, info.rectHeight);
+      ctx.beginPath();
+      ctx.roundRect(info.rectX, info.rectY, info.rectWidth, info.rectHeight, cornerRadius);
+      ctx.fill();
     }
 
     console.log('✓ 已绘制所有背景框');
