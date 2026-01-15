@@ -393,7 +393,6 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
   3. 前置形式：#F、bE（识别后请转换为标准形式 F#、Eb）
 - 无论升降号以何种形式出现，都应识别并返回标准格式（如 F# 而非 F^#）
 - 忽略歌词、简谱数字（1–7）、拍号（4/4 等）、速度标记
-- 忽略乐谱记号：D.C.、D.S.、Fine.、D.C. al Fine、D.S. al Coda、Capo、Coda、Segno 等
 
 ==============================
 【坐标定位规则（严格）】

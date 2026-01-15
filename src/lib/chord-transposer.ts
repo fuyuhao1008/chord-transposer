@@ -230,9 +230,6 @@ class ChordTransposer {
     // 规范化和弦字符串
     let corrected = chordString.trim();
 
-    // 转换上标升降号（AI可能识别出上标符号：^# → #, ^b → b）
-    corrected = corrected.replace(/\^#/g, '#').replace(/\^b/g, 'b');
-
     // 转换上标数字为普通数字（AI可能识别出上标字符）
     const superscriptMap: Record<string, string> = {
       '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
@@ -275,9 +272,6 @@ class ChordTransposer {
    */
   parseChord(chordString: string): Chord | null {
     let trimmed = chordString.trim();
-
-    // 转换上标升降号（AI可能识别出上标符号：^# → #, ^b → b）
-    trimmed = trimmed.replace(/\^#/g, '#').replace(/\^b/g, 'b');
 
     // 转换上标数字为普通数字（AI可能识别出上标字符）
     const superscriptMap: Record<string, string> = {
