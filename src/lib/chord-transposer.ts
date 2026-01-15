@@ -559,14 +559,12 @@ class ChordTransposer {
    * @param originalKey 原调
    * @param semitones 半音数（正数表示升，负数表示降）
    * @param useEnharmonic 是否使用等音（废弃，参数保留以兼容）
-   * @param userTargetKey 用户指定的目标调（可选，用于覆盖计算的目标调）
    */
   transposeChordsBySemitones(
     chords: Chord[],
     originalKey: string,
     semitones: number,
-    useEnharmonic: boolean = true,
-    userTargetKey?: string
+    useEnharmonic: boolean = true
   ): TransposeResult {
     // 规范化原调为升号形式
     const normalizedOriginal = this.normalizeToSharp(originalKey);
@@ -576,18 +574,15 @@ class ChordTransposer {
     const targetIndex = ((originalIndex + semitones) % 12 + 12) % 12;
     let targetKeyCalculated = CHROMATIC_SCALE[targetIndex];
 
-    // 如果用户指定了目标调，使用用户选择的（优先于计算值）
-    const targetKeyToUse = userTargetKey || targetKeyCalculated;
-
     // 根据目标调决定是否使用降号形式
     const flatKeys = ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'];
-    const shouldUseFlats = flatKeys.includes(targetKeyToUse);
+    const shouldUseFlats = flatKeys.includes(targetKeyCalculated);
 
-    console.log(`transposeChordsBySemitones: 原调 ${originalKey} 升${semitones} -> 目标调 ${targetKeyToUse}, 降号形式: ${shouldUseFlats}`);
+    console.log(`transposeChordsBySemitones: 原调 ${originalKey} 升${semitones} -> 目标调 ${targetKeyCalculated}, 降号形式: ${shouldUseFlats}`);
 
     return {
       originalKey,
-      targetKey: targetKeyToUse,
+      targetKey: targetKeyCalculated,
       semitones,
       chords: chords.map(chord => {
         const transposed = this.transposeChord(chord, semitones, shouldUseFlats);
@@ -710,59 +705,13 @@ class ChordTransposer {
     const trimmed = key.trim().toUpperCase();
     // 处理 1=C 格式
     if (trimmed.startsWith('1=')) {
-      let result = trimmed.replace('1=', '');
-      return this.normalizeKeyCommonErrors(result);
+      return trimmed.replace('1=', '');
     }
     // 处理 Key: C 格式
     if (trimmed.startsWith('KEY:')) {
-      let result = trimmed.replace('KEY:', '');
-      return this.normalizeKeyCommonErrors(result);
+      return trimmed.replace('KEY:', '');
     }
-    return this.normalizeKeyCommonErrors(trimmed);
-  }
-
-  /**
-   * 处理AI识别的常见调号错误
-   */
-  private normalizeKeyCommonErrors(key: string): string {
-    let result = key;
-
-    // 移除所有空格（处理 "B B" → "BB" 或 "B b" → "Bb"）
-    result = result.replace(/\s+/g, '');
-
-    // 处理降号调的错误识别（BB → Bb, EE → Eb 等）
-    // 这些情况是AI可能把降号识别成了大写字母
-    const flatMappings: Record<string, string> = {
-      'BB': 'Bb',
-      'EE': 'Eb',
-      'AA': 'Ab',
-      'DD': 'Db',
-      'GG': 'Gb',
-      'CC': 'Cb',
-      'FF': 'F', // F调不需要降号
-    };
-
-    if (flatMappings[result]) {
-      console.log(`⚠️ AI识别调号错误: ${result} → ${flatMappings[result]}`);
-      result = flatMappings[result];
-    }
-
-    // 处理升号调的错误识别（CC# → C#, FF# → F# 等）
-    // 这些情况是AI可能把单个字母识别成了两个相同字母
-    const sharpMappings: Record<string, string> = {
-      'CC#': 'C#',
-      'FF#': 'F#',
-      'GG#': 'G#',
-      'AA#': 'A#',
-      'DD#': 'D#',
-    };
-
-    if (sharpMappings[result]) {
-      console.log(`⚠️ AI识别调号错误: ${result} → ${sharpMappings[result]}`);
-      result = sharpMappings[result];
-    }
-
-    return result;
+    return trimmed;
   }
 }
 
@@ -785,78 +734,11 @@ export const ALL_KEYS = [
 ];
 
 /**
- * 规范化音符为升号形式（独立函数，不依赖类实例）
- * @param note 音符（如 'C', 'Db', 'F#', 'Bb'）
- * @returns 升号形式（如 'C', 'C#', 'F#', 'A#'）
- */
-export function normalizeNoteToSharp(note: string): string {
-  console.log(`  [normalizeNoteToSharp] 输入: "${note}"`);
-
-  // 处理极端音记
-  const extremeNoteMap: Record<string, string> = {
-    'E#': 'F', 'Fb': 'E',
-    'B#': 'C', 'Cb': 'B',
-  };
-  if (extremeNoteMap[note]) {
-    console.log(`  [normalizeNoteToSharp] 极端音记映射: "${note}" -> "${extremeNoteMap[note]}"`);
-    return extremeNoteMap[note];
-  }
-
-  // 规范化升降号位置：升降号在字母前移到字母后
-  // 支持 bB、Bb、#F、F# 等格式
-  // 手动解析以避免正则表达式 i 标志导致的问题
-  let normalized = note;
-
-  // 尝试匹配升降号在前的格式 (#F, bE, bB)
-  // 第一个字符必须是 # 或小写 b
-  const frontMatch = note.match(/^([#b])([A-Za-z])$/);
-  if (frontMatch) {
-    normalized = frontMatch[2].toUpperCase() + frontMatch[1]; // #F -> F#, bE -> Eb, bB -> Bb
-    console.log(`  [normalizeNoteToSharp] 匹配到升降号在前格式: "${note}" -> "${normalized}"`);
-  } else {
-    // 尝试匹配升降号在后的格式 (F#, Eb, Bb)
-    // 第二个字符必须是 # 或小写 b
-    const backMatch = note.match(/^([A-Za-z])([#b])$/);
-    if (backMatch) {
-      normalized = backMatch[1].toUpperCase() + backMatch[2]; // F# -> F#, Eb -> Eb, Bb -> Bb
-      console.log(`  [normalizeNoteToSharp] 匹配到升降号在后格式: "${note}" -> "${normalized}"`);
-    } else {
-      // 尝试匹配纯音名 (C, D, E)
-      const simpleMatch = note.match(/^([A-Za-z])$/);
-      if (simpleMatch) {
-        normalized = simpleMatch[1].toUpperCase(); // C -> C, c -> C
-        console.log(`  [normalizeNoteToSharp] 匹配到纯音名: "${note}" -> "${normalized}"`);
-      } else {
-        console.log(`  [normalizeNoteToSharp] 未能匹配标准格式: "${note}"`);
-      }
-    }
-  }
-
-  // 检查是否已经是升号或基本音
-  if (CHROMATIC_SCALE.includes(normalized)) {
-    console.log(`  [normalizeNoteToSharp] 已是升号形式: "${normalized}"`);
-    return normalized;
-  }
-
-  // 将降号转换为升号（使用 ENHARMONIC_MAP）
-  const mapped = ENHARMONIC_MAP[normalized];
-  if (mapped) {
-    console.log(`  [normalizeNoteToSharp] 等音映射: "${normalized}" -> "${mapped}"`);
-    return mapped;
-  }
-
-  console.log(`  [normalizeNoteToSharp] 未能转换，返回原始值: "${normalized}"`);
-  return normalized;
-}
-
-/**
  * 获取调号在音阶中的索引
  * @param key 调号（如 'C', 'Db', 'F#'）
  * @returns 索引（0-11），找不到则返回 -1
  */
 export function getKeyIndex(key: string): number {
-  const normalizedKey = normalizeNoteToSharp(key);
-  const index = CHROMATIC_SCALE.findIndex(n => n === normalizedKey);
-  console.log(`  [getKeyIndex] "${key}" -> "${normalizedKey}" -> 索引: ${index}`);
-  return index;
+  const normalizedKey = chordTransposer['normalizeToSharp'](key);
+  return CHROMATIC_SCALE.findIndex(n => n === normalizedKey);
 }

@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  /* config options here */
+  allowedDevOrigins: ['*.dev.coze.site'],
   images: {
     remotePatterns: [
       {
@@ -10,7 +12,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  output: 'standalone', // 生成独立部署包，解决部署环境兼容性问题
 };
 
 export default nextConfig;

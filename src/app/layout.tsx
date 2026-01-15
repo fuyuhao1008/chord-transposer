@@ -1,35 +1,47 @@
 import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { ErrorBoundary } from '@/components/error-boundary';
+
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+});
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+});
 
 export const metadata: Metadata = {
   title: {
-    default: '琴献馨香',
-    template: '%s | 琴献馨香',
+    default: '新应用 | 扣子编程',
+    template: '%s | 扣子编程',
   },
   description:
-    '上传简谱图片，可进行和弦转调，输出新图。基于AI驱动的智能和弦转调工具，支持12个调性转换，自动在原图上原位替换和弦。',
+    '扣子编程是一款一站式云端 Vibe Coding 开发平台。通过对话轻松构建智能体、工作流和网站，实现从创意到上线的无缝衔接。',
   keywords: [
-    '简谱',
-    '和弦转调',
-    'AI识别',
-    '音乐转调',
-    '自动转调',
-    '智能和弦',
-    '转调工具',
-    '音乐助手',
+    '扣子编程',
+    'Coze Code',
+    'Vibe Coding',
+    'AI 编程',
+    '智能体搭建',
+    '工作流搭建',
+    '网站搭建',
+    '网站部署',
+    '全栈开发',
+    'AI 工程师',
   ],
-  authors: [{ name: '琴献馨香', url: '' }],
-  generator: '琴献馨香',
+  authors: [{ name: 'Coze Code Team', url: 'https://code.coze.cn' }],
+  generator: 'Coze Code',
   // icons: {
   //   icon: '',
   // },
   openGraph: {
-    title: '琴献馨香 | 简谱和弦智能转调工具',
+    title: '扣子编程 | 你的 AI 工程师已就位',
     description:
-      '上传简谱图片，可进行和弦转调，输出新图。基于AI驱动的智能和弦转调工具，支持12个调性转换。',
-    url: '',
-    siteName: '琴献馨香',
+      '我正在使用扣子编程 Vibe Coding，让创意瞬间上线。告别拖拽，拥抱心流。',
+    url: 'https://code.coze.cn',
+    siteName: '扣子编程',
     locale: 'zh_CN',
     type: 'website',
     // images: [
@@ -37,15 +49,15 @@ export const metadata: Metadata = {
     //     url: '',
     //     width: 1200,
     //     height: 630,
-    //     alt: '琴献馨香 - 简谱和弦转调工具',
+    //     alt: '扣子编程 - 你的 AI 工程师',
     //   },
     // ],
   },
   // twitter: {
   //   card: 'summary_large_image',
-  //   title: '琴献馨香 | 简谱和弦智能转调工具',
+  //   title: 'Coze Code | Your AI Engineer is Here',
   //   description:
-  //     '上传简谱图片，自动识别和弦并转调到任意调性。基于AI驱动的智能和弦转调工具，支持12个调性转换。',
+  //     'Build and deploy full-stack applications through AI conversation. No env setup, just flow.',
   //   // images: [''],
   // },
   robots: {
@@ -61,10 +73,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body className="antialiased">
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
       </body>
     </html>
   );
