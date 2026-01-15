@@ -292,10 +292,16 @@ export default function TransposePage() {
 
   // 确保只在客户端渲染完成后才显示图片
   useEffect(() => {
-    // 确保在客户端环境中才设置mounted
-    if (typeof window !== 'undefined') {
+    try {
+      // 确保在客户端环境中才设置mounted
+      if (typeof window !== 'undefined') {
+        setMounted(true);
+        console.log('📱 mounted已设置，页面应正常显示');
+      }
+    } catch (error) {
+      console.error('设置mounted状态失败:', error);
+      // 即使出错也设置mounted，避免页面一直卡在加载状态
       setMounted(true);
-      console.log('📱 mounted已设置，页面应正常显示');
     }
   }, []);
 
@@ -593,8 +599,8 @@ export default function TransposePage() {
       if (typeof window === 'undefined') return null;
 
       const rect = container.getBoundingClientRect();
-      // 实时检测屏幕宽度，避免使用过时的 isMobile 状态
-      const isCurrentlyMobile = window.innerWidth < 768;
+      // 使用ref中的移动端状态，避免重复访问window
+      const isCurrentlyMobile = isMobileRef.current;
       const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
 
       // 新图标尺寸参数（精确计算）
@@ -965,7 +971,8 @@ export default function TransposePage() {
                   {anchorPoints.map((point, index) => {
                     const isLongPressed = longPressedIndex === index;
                     const isDragging = draggingIndex === index;
-                    const isCurrentlyMobile = window.innerWidth < 768;
+                    // 使用ref中缓存的移动端状态，避免在JSX渲染中访问window
+                    const isCurrentlyMobile = isMobileRef.current;
                     const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
                     const circleOuterSize = 60 * scaleFactor; // 外圆直径
                     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
