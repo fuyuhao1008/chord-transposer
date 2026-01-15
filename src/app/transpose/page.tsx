@@ -277,7 +277,11 @@ export default function TransposePage() {
 
   // 确保只在客户端渲染完成后才显示图片
   useEffect(() => {
-    setMounted(true);
+    // 确保在客户端环境中才设置mounted
+    if (typeof window !== 'undefined') {
+      setMounted(true);
+      console.log('📱 mounted已设置，页面应正常显示');
+    }
   }, []);
 
   // Pointer Events 事件处理函数（跨平台统一方案）

@@ -7,4 +7,4 @@ run = ["pnpm", "dev", "--port", "5000"]
 
 [deploy]
 build = ["bash", "-c", "pnpm install --no-frozen-lockfile && pnpm build"]
-run = ["sh", "-c", "PORT=5000 pnpm start"]
+run = ["sh", "-c", "cd .next/standalone/workspace/projects && PORT=5000 node server.js"]
