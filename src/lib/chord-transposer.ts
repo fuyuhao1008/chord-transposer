@@ -288,8 +288,30 @@ class ChordTransposer {
   }
 
   /**
+   * 从复合字符串中提取和弦部分
+   * 例如：从 "CD.S.al.Fine." 中提取 "C"
+   * 例如：从 "DD.S.al.Fine." 中提取 "D"
+   * 识别模式：以音符开始，后面可能紧跟另一个音符或重复记号
+   */
+  private extractChordFromComposite(composite: string): string | null {
+    // 正则表达式匹配：以A-G开头，可能跟升降号，然后可能跟和弦性质
+    // 紧接着可能是另一个音符（开始重复记号）或非和弦字符
+    const chordAtStartRegex = /^([A-G][#b]?[a-z0-9]*)/i;
+    const match = composite.match(chordAtStartRegex);
+
+    if (match && match[1]) {
+      const extracted = match[1];
+      console.log(`  从复合字符串 "${composite}" 中提取和弦: "${extracted}"`);
+      return extracted;
+    }
+
+    return null;
+  }
+
+  /**
    * 解析和弦字符串
    * @param chordString 和弦字符串，如 "C", "Am7", "Gsus4", "C/E", "G7sus4", "#C", "(D)", "(D/F#)", "(#D/F#)"
+   * 也支持复合字符串，如 "CD.S.al.Fine." → "C"
    */
   parseChord(chordString: string): Chord | null {
     let trimmed = chordString.trim();
@@ -309,6 +331,13 @@ class ChordTransposer {
     // 如果有括号，去掉括号后再匹配
     if (hasParentheses) {
       trimmed = trimmed.slice(1, -1);
+    }
+
+    // 尝试从复合字符串中提取和弦（例如 "CD.S.al.Fine." → "C"）
+    const extracted = this.extractChordFromComposite(trimmed);
+    if (extracted) {
+      console.log(`  解析复合字符串: "${chordString}" -> "${extracted}"`);
+      trimmed = extracted;
     }
 
     const match = trimmed.match(CHORD_REGEX);
@@ -359,13 +388,29 @@ class ChordTransposer {
   }
 
   /**
+   * 强制将升号转换为降号（D#→Eb, A#→Bb）
+   * @param note 音符
+   */
+  private forceToFlat(note: string): string {
+    const forcedMap: Record<string, string> = {
+      'D#': 'Eb',
+      'A#': 'Bb',
+    };
+    return forcedMap[note] || note;
+  }
+
+  /**
    * 将和弦转换为字符串
    * @param chord 和弦对象
    */
   chordToString(chord: Chord): string {
-    let result = chord.root + chord.quality;
-    if (chord.bass) {
-      result += '/' + chord.bass;
+    // 强制转换：D# → Eb, A# → Bb
+    let root = this.forceToFlat(chord.root);
+    let bass = chord.bass ? this.forceToFlat(chord.bass) : undefined;
+
+    let result = root + chord.quality;
+    if (bass) {
+      result += '/' + bass;
     }
     // 如果有括号，用半角括号包围
     if (chord.hasParentheses) {

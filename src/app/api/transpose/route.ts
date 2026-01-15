@@ -739,12 +739,12 @@ async function annotateImage(
 
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
-      const markFontSize = Math.max(20, Math.min(32, Math.round(image.width / 35))); // 增大字号
+      const markFontSize = Math.max(24, Math.min(40, Math.round(image.width / 30))); // 增大字号
       const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
       // 计算文本尺寸
-      ctx.font = `bold ${markFontSize}px Arial, "Microsoft YaHei", sans-serif`;
+      ctx.font = `normal ${markFontSize}px "Times New Roman", Times, serif`; // Times Roman字体，不加粗
       const markMetrics = ctx.measureText(markText);
       const markWidth = markMetrics.width;
       const markHeight = markFontSize * 1.2;
@@ -768,7 +768,7 @@ async function annotateImage(
       ctx.textBaseline = 'top';
       ctx.fillText(markText, markX, markY - markHeight);
 
-      console.log('✓ 已绘制转调标记:', markText, '在左上角');
+      console.log('✓ 已绘制转调标记:', markText, '在左上角，字体: Times Roman, 字号:', markFontSize);
     }
 
     // 转换为 Buffer
