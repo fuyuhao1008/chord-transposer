@@ -582,7 +582,8 @@ async function annotateImage(
     ctx.drawImage(image, 0, 0);
 
     // 计算字体大小：如果提供了自定义值则使用，否则动态计算
-    const fontSize = customFontSize || Math.max(16, Math.min(28, Math.round(image.width / 45)));
+    // 恢复到部署版本的合理大小范围（16-32），避免过小
+    const fontSize = customFontSize || Math.max(20, Math.min(32, Math.round(image.width / 40)));
     console.log('实际字体大小:', fontSize);
 
     // 设置字体（用于测量文本，使用跨平台兼容的中文字体栈）

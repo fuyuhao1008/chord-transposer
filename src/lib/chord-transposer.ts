@@ -47,6 +47,7 @@ export const ENHARMONIC_MAP: Record<string, string> = {
 
 // 和弦识别正则表达式（支持升降号在前/后和括号包围）
 // 匹配：C, C#, #C, (D), (D/F#), (#C), G7sus4, Am7, A7sus4, Asus4 等
+// bass部分格式：/F#, /bE, /#C
 const CHORD_REGEX = /^(?:\()?([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?[A-G])([#b])?)?(?:\))?$/i;
 
 class ChordTransposer {
@@ -71,6 +72,8 @@ class ChordTransposer {
   parseChord(chordString: string): Chord | null {
     let trimmed = chordString.trim();
 
+    console.log(`    [parseChord] 原始输入: "${chordString}"`);
+
     // 转换上标数字为普通数字（AI可能识别出上标字符）
     const superscriptMap: Record<string, string> = {
       '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
@@ -83,10 +86,13 @@ class ChordTransposer {
     const match = trimmed.match(CHORD_REGEX);
 
     if (!match) {
+      console.warn(`    [parseChord] ⚠️ 正则匹配失败: "${trimmed}"`);
       return null;
     }
 
     const [, accidentalFront, root, accidentalBack, qualityPart, bassPart, bassAccidental] = match;
+
+    console.log(`    [parseChord] 匹配结果: root="${root}", quality="${qualityPart}", bass="${bassPart}", bassAccidental="${bassAccidental}"`);
 
     // 合并升降号（优先使用前面的）
     const accidental = accidentalFront || accidentalBack || '';
@@ -114,7 +120,10 @@ class ChordTransposer {
       if (bassMatch) {
         const [, bassAccFront, bassRoot, bassAccBack] = bassMatch;
         const bassAccidental = bassAccFront || bassAccBack || '';
-        normalizedBass = this.normalizeToSharp(bassRoot + bassAccidental);
+        const rawBass = bassRoot + bassAccidental;
+        console.log(`    [parseChord] 解析bass: raw="${rawBass}", accFront="${bassAccFront}", accBack="${bassAccBack}"`);
+        normalizedBass = this.normalizeToSharp(rawBass);
+        console.log(`    [parseChord] 规范化后的bass: "${normalizedBass}"`);
       }
     }
 
@@ -130,6 +139,8 @@ class ChordTransposer {
       bass: normalizedBass,
       hasParentheses,
     };
+
+    console.log(`    [parseChord] 最终结果:`, JSON.stringify(chord));
 
     return chord;
   }
