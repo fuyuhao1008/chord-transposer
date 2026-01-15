@@ -392,7 +392,12 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
   2. 上标形式（浮在上半空间）：F^#、B^b、G^#m（类似 A7sus4 中 7、4 的上标）
   3. 前置形式：#F、bE（识别后请转换为标准形式 F#、Eb）
 - 无论升降号以何种形式出现，都应识别并返回标准格式（如 F# 而非 F^#）
-- 特别注意：即使和弦标记与重复记号（如 D.S.al.Fine.、Fine.、D.C.）紧邻，也要识别其中的和弦（如 C）
+- ⚠️ 复合字符串识别（非常重要）：
+  - 如果和弦标记与重复记号紧邻，返回完整的字符串（如 CD.S.al.Fine.、D7Fine.）
+  - 常见格式：CD.S.al.Fine.、DD.S.al.Fine.、C Fine.、D7 Fine.
+  - 不要跳过任何和弦，即使它与重复记号紧邻
+  - 示例：看到 "CD.S.al.Fine."，必须返回 { "text": "CD.S.al.Fine.", "cx": xxx, "cy": xxx }
+  - 示例：看到 "D7Fine."，必须返回 { "text": "D7Fine.", "cx": xxx, "cy": xxx }
 - 忽略歌词、简谱数字（1–7）、拍号（4/4 等）、速度标记
 
 ==============================
