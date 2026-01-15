@@ -252,22 +252,37 @@ export default function TransposePage() {
 
   // 检测移动端设备
   useEffect(() => {
-    const checkMobile = () => {
-      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-      // 检测常见的移动端User-Agent
-      const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
-      const isMobileDevice = mobileRegex.test(userAgent);
-      // 同时也检查屏幕宽度作为备用
-      const isSmallScreen = window.innerWidth < 768;
+    try {
+      const checkMobile = () => {
+        if (typeof navigator === 'undefined' || typeof window === 'undefined') {
+          return;
+        }
 
-      const isMobileResult = isMobileDevice || isSmallScreen;
-      setIsMobile(isMobileResult);
-      isMobileRef.current = isMobileResult; // 同步到ref
-    };
+        try {
+          const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+          // 检测常见的移动端User-Agent
+          const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+          const isMobileDevice = mobileRegex.test(userAgent);
+          // 同时也检查屏幕宽度作为备用
+          const isSmallScreen = window.innerWidth < 768;
 
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+          const isMobileResult = isMobileDevice || isSmallScreen;
+          setIsMobile(isMobileResult);
+          isMobileRef.current = isMobileResult; // 同步到ref
+        } catch (error) {
+          console.error('检测移动端失败:', error);
+          // 出错时默认为非移动端
+          setIsMobile(false);
+          isMobileRef.current = false;
+        }
+      };
+
+      checkMobile();
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    } catch (error) {
+      console.error('初始化移动端检测失败:', error);
+    }
   }, []);
 
   // 同步anchorPoints到ref
@@ -571,57 +586,64 @@ export default function TransposePage() {
 
   // 判断指针位置是否在某个图标区域内（考虑新图标的实际尺寸）
   const isTouchOnMarker = (pointerX: number, pointerY: number): number | null => {
-    const container = imageContainerRef.current;
-    if (!container) return null;
+    try {
+      const container = imageContainerRef.current;
+      if (!container) return null;
 
-    const rect = container.getBoundingClientRect();
-    // 实时检测屏幕宽度，避免使用过时的 isMobile 状态
-    const isCurrentlyMobile = window.innerWidth < 768;
-    const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
+      if (typeof window === 'undefined') return null;
 
-    // 新图标尺寸参数（精确计算）
-    const circleOuterSize = 60 * scaleFactor; // 外圆直径
-    const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
-    // 文字框实际尺寸（根据文字内容计算）
-    const textWidth = 236 * scaleFactor; // 文字框宽度（微调以对齐红点）
-    const textHeight = 70 * scaleFactor; // 文字框高度（两行文字）
-    const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
-    const totalHeight = Math.max(circleOuterSize, textHeight); // 总高度
+      const rect = container.getBoundingClientRect();
+      // 实时检测屏幕宽度，避免使用过时的 isMobile 状态
+      const isCurrentlyMobile = window.innerWidth < 768;
+      const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
 
-    for (let i = 0; i < anchorPointsRef.current.length; i++) {
-      const point = anchorPointsRef.current[i];
-      // 红点圆心中心点位置（用于确定和弦中心）
-      const redDotCenterX = (point.x / 100) * rect.width;
-      const redDotCenterY = (point.y / 100) * rect.height;
+      // 新图标尺寸参数（精确计算）
+      const circleOuterSize = 60 * scaleFactor; // 外圆直径
+      const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
+      // 文字框实际尺寸（根据文字内容计算）
+      const textWidth = 236 * scaleFactor; // 文字框宽度（微调以对齐红点）
+      const textHeight = 70 * scaleFactor; // 文字框高度（两行文字）
+      const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
+      const totalHeight = Math.max(circleOuterSize, textHeight); // 总高度
 
-      // 计算图标实际占据的矩形区域
-      let markerLeft, markerRight;
+      for (let i = 0; i < anchorPointsRef.current.length; i++) {
+        const point = anchorPointsRef.current[i];
+        // 红点圆心中心点位置（用于确定和弦中心）
+        const redDotCenterX = (point.x / 100) * rect.width;
+        const redDotCenterY = (point.y / 100) * rect.height;
 
-      if (i === 0) {
-        // 第一个图标：圆圈在左，文字在右
-        markerLeft = redDotCenterX - circleOuterSize / 2; // 从圆圈左边开始
-        markerRight = markerLeft + totalWidth; // 到文字框右边结束
-      } else {
-        // 第二个图标：圆圈在右，文字在左
-        markerRight = redDotCenterX + circleOuterSize / 2; // 从圆圈右边开始
-        markerLeft = markerRight - totalWidth; // 到文字框左边结束
+        // 计算图标实际占据的矩形区域
+        let markerLeft, markerRight;
+
+        if (i === 0) {
+          // 第一个图标：圆圈在左，文字在右
+          markerLeft = redDotCenterX - circleOuterSize / 2; // 从圆圈左边开始
+          markerRight = markerLeft + totalWidth; // 到文字框右边结束
+        } else {
+          // 第二个图标：圆圈在右，文字在左
+          markerRight = redDotCenterX + circleOuterSize / 2; // 从圆圈右边开始
+          markerLeft = markerRight - totalWidth; // 到文字框左边结束
+        }
+
+        const markerTop = redDotCenterY - totalHeight / 2;
+        const markerBottom = markerTop + totalHeight;
+
+        // 检测点是否在图标矩形区域内
+        if (
+          pointerX >= markerLeft &&
+          pointerX <= markerRight &&
+          pointerY >= markerTop &&
+          pointerY <= markerBottom
+        ) {
+          return i;
+        }
       }
 
-      const markerTop = redDotCenterY - totalHeight / 2;
-      const markerBottom = markerTop + totalHeight;
-
-      // 检测点是否在图标矩形区域内
-      if (
-        pointerX >= markerLeft &&
-        pointerX <= markerRight &&
-        pointerY >= markerTop &&
-        pointerY <= markerBottom
-      ) {
-        return i;
-      }
+      return null;
+    } catch (error) {
+      console.error('检测触摸位置失败:', error);
+      return null;
     }
-
-    return null;
   };
 
   // 确认选择并识别原调
