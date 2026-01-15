@@ -245,46 +245,29 @@ export default function TransposePage() {
   const draggingIndexRef = useRef<number | null>(null);
   const initialTouchPosRef = useRef<{ x: number; y: number } | null>(null);
   const touchMovedTooMuchRef = useRef<boolean>(false);
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isMobileRef = useRef<boolean>(false); // 使用ref而不是state，避免闭包问题
   const dragOffsetRef = useRef<{ x: number; y: number } | null>(null); // 记录拖动时的鼠标偏移量
   const activePointersRef = useRef<Set<number>>(new Set()); // 跟踪活跃的pointer ID
 
   // 检测移动端设备
   useEffect(() => {
-    console.log('📱 开始检测移动端设备...');
-    try {
-      const checkMobile = () => {
-        console.log('📱 检查移动端状态...');
-        if (typeof navigator === 'undefined' || typeof window === 'undefined') {
-          console.log('⚠️ navigator或window未定义，跳过移动端检测');
-          return;
-        }
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      // 检测常见的移动端User-Agent
+      const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
+      const isMobileDevice = mobileRegex.test(userAgent);
+      // 同时也检查屏幕宽度作为备用
+      const isSmallScreen = window.innerWidth < 768;
 
-        try {
-          const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
-          console.log('📱 UserAgent:', userAgent.substring(0, 100));
-          // 检测常见的移动端User-Agent
-          const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
-          const isMobileDevice = mobileRegex.test(userAgent);
-          // 同时也检查屏幕宽度作为备用
-          const isSmallScreen = window.innerWidth < 768;
-          console.log('📱 检测结果:', { isMobileDevice, isSmallScreen, width: window.innerWidth });
+      const isMobileResult = isMobileDevice || isSmallScreen;
+      setIsMobile(isMobileResult);
+      isMobileRef.current = isMobileResult; // 同步到ref
+    };
 
-          const isMobileResult = isMobileDevice || isSmallScreen;
-          setIsMobile(isMobileResult);
-          console.log('✅ 移动端检测完成:', isMobileResult);
-        } catch (error) {
-          console.error('❌ 检测移动端失败:', error);
-          // 出错时默认为非移动端
-          setIsMobile(false);
-        }
-      };
-
-      checkMobile();
-      window.addEventListener('resize', checkMobile);
-      return () => window.removeEventListener('resize', checkMobile);
-    } catch (error) {
-      console.error('❌ 初始化移动端检测失败:', error);
-    }
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // 同步anchorPoints到ref
@@ -294,17 +277,7 @@ export default function TransposePage() {
 
   // 确保只在客户端渲染完成后才显示图片
   useEffect(() => {
-    try {
-      // 确保在客户端环境中才设置mounted
-      if (typeof window !== 'undefined') {
-        setMounted(true);
-        console.log('📱 mounted已设置，页面应正常显示');
-      }
-    } catch (error) {
-      console.error('设置mounted状态失败:', error);
-      // 即使出错也设置mounted，避免页面一直卡在加载状态
-      setMounted(true);
-    }
+    setMounted(true);
   }, []);
 
   // Pointer Events 事件处理函数（跨平台统一方案）
@@ -564,66 +537,87 @@ export default function TransposePage() {
   };
 
   // 处理标记拖拽开始
+  const handleMarkerMouseDown = (event: React.MouseEvent, index: number) => {
+    event.stopPropagation();
+    setDraggingIndex(index);
+    // 记录鼠标按下位置，用于区分点击和拖动
+    mouseDownPosRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  // 处理标记拖拽移动
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (draggingIndex === null) return;
+
+    const container = imageContainerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+
+    const newPoints = [...anchorPoints];
+    newPoints[draggingIndex] = { x, y };
+    setAnchorPoints(newPoints);
+  };
+
+  // 处理标记拖拽结束
+  const handleMouseUp = () => {
+    setDraggingIndex(null);
+  };
+
   // 判断指针位置是否在某个图标区域内（考虑新图标的实际尺寸）
   const isTouchOnMarker = (pointerX: number, pointerY: number): number | null => {
-    try {
-      const container = imageContainerRef.current;
-      if (!container) return null;
+    const container = imageContainerRef.current;
+    if (!container) return null;
 
-      if (typeof window === 'undefined') return null;
+    const rect = container.getBoundingClientRect();
+    // 实时检测屏幕宽度，避免使用过时的 isMobile 状态
+    const isCurrentlyMobile = window.innerWidth < 768;
+    const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
 
-      const rect = container.getBoundingClientRect();
-      // 使用isMobile状态，避免重复访问window
-      const isCurrentlyMobile = isMobile;
-      const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
+    // 新图标尺寸参数（精确计算）
+    const circleOuterSize = 60 * scaleFactor; // 外圆直径
+    const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
+    // 文字框实际尺寸（根据文字内容计算）
+    const textWidth = 236 * scaleFactor; // 文字框宽度（微调以对齐红点）
+    const textHeight = 70 * scaleFactor; // 文字框高度（两行文字）
+    const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
+    const totalHeight = Math.max(circleOuterSize, textHeight); // 总高度
 
-      // 新图标尺寸参数（精确计算）
-      const circleOuterSize = 60 * scaleFactor; // 外圆直径
-      const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
-      // 文字框实际尺寸（根据文字内容计算）
-      const textWidth = 236 * scaleFactor; // 文字框宽度（微调以对齐红点）
-      const textHeight = 70 * scaleFactor; // 文字框高度（两行文字）
-      const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
-      const totalHeight = Math.max(circleOuterSize, textHeight); // 总高度
+    for (let i = 0; i < anchorPointsRef.current.length; i++) {
+      const point = anchorPointsRef.current[i];
+      // 红点圆心中心点位置（用于确定和弦中心）
+      const redDotCenterX = (point.x / 100) * rect.width;
+      const redDotCenterY = (point.y / 100) * rect.height;
 
-      for (let i = 0; i < anchorPointsRef.current.length; i++) {
-        const point = anchorPointsRef.current[i];
-        // 红点圆心中心点位置（用于确定和弦中心）
-        const redDotCenterX = (point.x / 100) * rect.width;
-        const redDotCenterY = (point.y / 100) * rect.height;
+      // 计算图标实际占据的矩形区域
+      let markerLeft, markerRight;
 
-        // 计算图标实际占据的矩形区域
-        let markerLeft, markerRight;
-
-        if (i === 0) {
-          // 第一个图标：圆圈在左，文字在右
-          markerLeft = redDotCenterX - circleOuterSize / 2; // 从圆圈左边开始
-          markerRight = markerLeft + totalWidth; // 到文字框右边结束
-        } else {
-          // 第二个图标：圆圈在右，文字在左
-          markerRight = redDotCenterX + circleOuterSize / 2; // 从圆圈右边开始
-          markerLeft = markerRight - totalWidth; // 到文字框左边结束
-        }
-
-        const markerTop = redDotCenterY - totalHeight / 2;
-        const markerBottom = markerTop + totalHeight;
-
-        // 检测点是否在图标矩形区域内
-        if (
-          pointerX >= markerLeft &&
-          pointerX <= markerRight &&
-          pointerY >= markerTop &&
-          pointerY <= markerBottom
-        ) {
-          return i;
-        }
+      if (i === 0) {
+        // 第一个图标：圆圈在左，文字在右
+        markerLeft = redDotCenterX - circleOuterSize / 2; // 从圆圈左边开始
+        markerRight = markerLeft + totalWidth; // 到文字框右边结束
+      } else {
+        // 第二个图标：圆圈在右，文字在左
+        markerRight = redDotCenterX + circleOuterSize / 2; // 从圆圈右边开始
+        markerLeft = markerRight - totalWidth; // 到文字框左边结束
       }
 
-      return null;
-    } catch (error) {
-      console.error('检测触摸位置失败:', error);
-      return null;
+      const markerTop = redDotCenterY - totalHeight / 2;
+      const markerBottom = markerTop + totalHeight;
+
+      // 检测点是否在图标矩形区域内
+      if (
+        pointerX >= markerLeft &&
+        pointerX <= markerRight &&
+        pointerY >= markerTop &&
+        pointerY <= markerBottom
+      ) {
+        return i;
+      }
     }
+
+    return null;
   };
 
   // 确认选择并识别原调
@@ -650,10 +644,8 @@ export default function TransposePage() {
       if (data.originalKey) {
         setOriginalKey(data.originalKey);
         setIsAutoRecognized(true); // 标记为AI自动识别
-        console.log('🎵 自动识别原调成功:', data.originalKey);
       } else {
         setIsAutoRecognized(false); // 未识别到，标记为非自动识别
-        console.log('⚠️ 未识别到原调');
       }
     } catch (error) {
       console.error('自动识别原调失败:', error);
@@ -677,40 +669,24 @@ export default function TransposePage() {
 
   // 自动计算半音数和方向（优先选择小的）
   useEffect(() => {
-    console.log('🎵 转调计算触发:', { originalKey, targetKey });
     if (originalKey && originalKey !== 'auto' && targetKey) {
       const originalIndex = getKeyIndex(originalKey);
       const targetIndex = getKeyIndex(targetKey);
-
-      console.log('🔢 调号索引:', { 
-        originalKey, 
-        originalIndex,
-        targetKey,
-        targetIndex,
-      });
 
       if (originalIndex !== -1 && targetIndex !== -1) {
         // 计算两个可能的半音数
         const upSemitones = (targetIndex - originalIndex + 12) % 12;
         const downSemitones = (originalIndex - targetIndex + 12) % 12;
 
-        console.log('📊 半音数:', { upSemitones, downSemitones });
-
         // 优先选择半音数较小的方向
         if (upSemitones <= downSemitones) {
           setDirection('up');
           setSemitones(upSemitones);
-          console.log('✅ 设置方向: up, 半音数:', upSemitones);
         } else {
           setDirection('down');
           setSemitones(downSemitones);
-          console.log('✅ 设置方向: down, 半音数:', downSemitones);
         }
-      } else {
-        console.error('❌ 调号索引无效:', { originalIndex, targetIndex });
       }
-    } else {
-      console.log('⏭️ 跳过计算: originalKey或targetKey为空或为auto');
     }
   }, [targetKey, originalKey]);
 
@@ -842,15 +818,12 @@ export default function TransposePage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Music className="w-10 h-10 text-indigo-600" />
-            <h1
-              className="text-4xl font-bold text-gray-900 dark:text-white"
-              style={{ fontFamily: '"Noto Serif SC", "Georgia", serif' }}
-            >
-              琴献馨香
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
+              简谱和弦转调器
             </h1>
           </div>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            上传简谱图片，可进行和弦转调，输出新图
+            上传简谱图片，自动识别和弦并转调到任意调性
           </p>
         </div>
 
@@ -929,6 +902,9 @@ export default function TransposePage() {
                   onPointerUp={handlePointerUp}
                   onPointerCancel={handlePointerCancel}
                   onContextMenu={handleContextMenu}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
                 >
                   <img
                     key={imageKey}
@@ -942,8 +918,7 @@ export default function TransposePage() {
                   {anchorPoints.map((point, index) => {
                     const isLongPressed = longPressedIndex === index;
                     const isDragging = draggingIndex === index;
-                    // 使用isMobile状态，避免在JSX渲染中访问window
-                    const isCurrentlyMobile = isMobile;
+                    const isCurrentlyMobile = window.innerWidth < 768;
                     const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
                     const circleOuterSize = 60 * scaleFactor; // 外圆直径
                     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
@@ -970,6 +945,18 @@ export default function TransposePage() {
                           WebkitTouchCallout: 'none',
                           touchAction: 'none',
                         }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // 只在桌面端且移动距离小于5px时才视为点击（避免拖动后触发点击）
+                          if (!isMobile && mouseDownPosRef.current) {
+                            const deltaX = Math.abs(e.clientX - mouseDownPosRef.current.x);
+                            const deltaY = Math.abs(e.clientY - mouseDownPosRef.current.y);
+                            if (deltaX < 5 && deltaY < 5 && index === 0) {
+                              handleRelocateFirst();
+                            }
+                          }
+                        }}
+                        onMouseDown={(e) => handleMarkerMouseDown(e, index)}
                       >
                         {/* 使用新的CalibrationMarker组件 */}
                         <CalibrationMarker
@@ -1100,18 +1087,7 @@ export default function TransposePage() {
 
                     {/* 开始转调按钮 */}
                     <Button
-                      onClick={() => {
-                        console.log('🔘 按钮点击:', { targetKey, direction, semitones });
-                        console.log('🔘 按钮禁用条件:', {
-                          noTargetKey: !targetKey,
-                          noDirection: !direction,
-                              emptySemitones: semitones === '',
-                          targetKey,
-                          direction,
-                          semitones
-                        });
-                        handleTranspose();
-                      }}
+                      onClick={handleTranspose}
                       disabled={!targetKey || !direction || semitones === ''}
                       className="w-full"
                       size="lg"
@@ -1266,11 +1242,6 @@ export default function TransposePage() {
                             )}
                           </Button>
                         </div>
-                      </div>
-
-                      {/* 红色提示文字 */}
-                      <div className="text-center text-sm text-red-600 dark:text-red-400 py-2">
-                        若和弦记号明显偏离原位，请点击"重新生成图片"
                       </div>
 
                       {/* 结果图片 */}

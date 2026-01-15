@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
+    "build": "bash ./scripts/build.sh",
+    "dev": "bash ./scripts/dev.sh",
+    "preinstall": "npx only-allow pnpm",
     "lint": "eslint",
-    "start": "next start",
+    "start": "bash ./scripts/start.sh",
     "ts-check": "tsc -p tsconfig.json"
   },
   "dependencies": {
@@ -76,9 +77,13 @@
     "@types/sharp": "^0.32.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
+    "only-allow": "^1.2.2",
     "shadcn": "latest",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "packageManager": "pnpm@9.0.0"
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "pnpm": ">=9.0.0"
+  }
 }
