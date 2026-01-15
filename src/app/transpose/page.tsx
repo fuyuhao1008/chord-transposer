@@ -678,7 +678,12 @@ export default function TransposePage() {
       const originalIndex = getKeyIndex(originalKey);
       const targetIndex = getKeyIndex(targetKey);
 
-      console.log('🔢 调号索引:', { originalIndex, targetIndex });
+      console.log('🔢 调号索引:', { 
+        originalKey, 
+        originalIndex,
+        targetKey,
+        targetIndex,
+      });
 
       if (originalIndex !== -1 && targetIndex !== -1) {
         // 计算两个可能的半音数

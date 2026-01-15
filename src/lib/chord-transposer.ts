@@ -780,11 +780,62 @@ export const ALL_KEYS = [
 ];
 
 /**
+ * 规范化音符为升号形式（独立函数，不依赖类实例）
+ * @param note 音符（如 'C', 'Db', 'F#', 'Bb'）
+ * @returns 升号形式（如 'C', 'C#', 'F#', 'A#'）
+ */
+export function normalizeNoteToSharp(note: string): string {
+  console.log(`  [normalizeNoteToSharp] 输入: "${note}"`);
+
+  // 处理极端音记
+  const extremeNoteMap: Record<string, string> = {
+    'E#': 'F', 'Fb': 'E',
+    'B#': 'C', 'Cb': 'B',
+  };
+  if (extremeNoteMap[note]) {
+    console.log(`  [normalizeNoteToSharp] 极端音记映射: "${note}" -> "${extremeNoteMap[note]}"`);
+    return extremeNoteMap[note];
+  }
+
+  // 规范化升降号位置：升降号在字母前移到字母后
+  let normalized = note;
+  const match = note.match(/^([b#]?)([A-G])([b#]?)$/i);
+  if (match) {
+    const [, accFront, root, accBack] = match;
+    // 合并升降号（优先使用前面的）
+    if (accFront) {
+      normalized = root + accFront.toUpperCase(); // #F -> F#, bE -> Eb（确保大写）
+    } else {
+      normalized = root + (accBack || ''); // F# -> F#, C -> C
+    }
+    console.log(`  [normalizeNoteToSharp] 正则匹配结果: accFront="${accFront}", root="${root}", accBack="${accBack}", normalized="${normalized}"`);
+  }
+
+  // 检查是否已经是升号或基本音
+  if (CHROMATIC_SCALE.includes(normalized)) {
+    console.log(`  [normalizeNoteToSharp] 已是升号形式: "${normalized}"`);
+    return normalized;
+  }
+
+  // 将降号转换为升号（使用 ENHARMONIC_MAP）
+  const mapped = ENHARMONIC_MAP[normalized];
+  if (mapped) {
+    console.log(`  [normalizeNoteToSharp] 等音映射: "${normalized}" -> "${mapped}"`);
+    return mapped;
+  }
+
+  console.log(`  [normalizeNoteToSharp] 未能转换，返回原始值: "${normalized}"`);
+  return normalized;
+}
+
+/**
  * 获取调号在音阶中的索引
  * @param key 调号（如 'C', 'Db', 'F#'）
  * @returns 索引（0-11），找不到则返回 -1
  */
 export function getKeyIndex(key: string): number {
-  const normalizedKey = chordTransposer['normalizeToSharp'](key);
-  return CHROMATIC_SCALE.findIndex(n => n === normalizedKey);
+  const normalizedKey = normalizeNoteToSharp(key);
+  const index = CHROMATIC_SCALE.findIndex(n => n === normalizedKey);
+  console.log(`  [getKeyIndex] "${key}" -> "${normalizedKey}" -> 索引: ${index}`);
+  return index;
 }
