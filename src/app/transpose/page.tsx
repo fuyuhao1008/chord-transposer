@@ -227,6 +227,7 @@ export default function TransposePage() {
   const [semitones, setSemitones] = useState<number | ''>('');
   const [result, setResult] = useState<any>(null);
   const [isRecognizing, setIsRecognizing] = useState<boolean>(false);
+  const [isAutoRecognized, setIsAutoRecognized] = useState<boolean>(false); // 标记是否AI自动识别
   const [chordColor, setChordColor] = useState<string>('#2563EB'); // 默认改为蓝色
   const [fontSize, setFontSize] = useState<number | null>(null); // 自定义字体大小
   const [isAdjusting, setIsAdjusting] = useState<boolean>(false); // 是否正在调整字体
@@ -640,6 +641,9 @@ export default function TransposePage() {
       const data = await apiResponse.json();
       if (data.originalKey) {
         setOriginalKey(data.originalKey);
+        setIsAutoRecognized(true); // 标记为AI自动识别
+      } else {
+        setIsAutoRecognized(false); // 未识别到，标记为非自动识别
       }
     } catch (error) {
       console.error('自动识别原调失败:', error);
