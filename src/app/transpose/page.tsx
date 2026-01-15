@@ -5,15 +5,7 @@ import { ALL_KEYS, getKeyIndex } from '@/lib/chord-transposer';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Upload, Music, Download, Loader2, Settings } from 'lucide-react';
+import { Upload, Music, Download, Loader2 } from 'lucide-react';
 
 interface Point {
   x: number;
@@ -190,7 +182,7 @@ function CalibrationMarker({
             color: '#ffffff',
             fontWeight: 400,
             marginBottom: textPadding / 2,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif',
+            fontFamily: '"Microsoft YaHei", "Segoe UI", sans-serif',
             lineHeight: 1.4,
           }}
         >
@@ -203,7 +195,7 @@ function CalibrationMarker({
             fontSize: textFontSize,
             color: '#ffffff',
             fontWeight: 400,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif',
+            fontFamily: '"Microsoft YaHei", "Segoe UI", sans-serif',
             lineHeight: 1.4,
           }}
         >
@@ -587,7 +579,7 @@ export default function TransposePage() {
     const circleOuterSize = 60 * scaleFactor; // 外圆直径
     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
     // 文字框实际尺寸（根据文字内容计算）
-    const textWidth = 230 * scaleFactor; // 文字框宽度（微调，更接近实际渲染宽度）
+    const textWidth = 240 * scaleFactor; // 文字框宽度（更精确，略微缩小）
     const textHeight = 70 * scaleFactor; // 文字框高度（两行文字）
     const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
     const totalHeight = Math.max(circleOuterSize, textHeight); // 总高度
@@ -792,58 +784,6 @@ export default function TransposePage() {
     link.click();
   };
 
-  // 应用和弦修改
-  const handleApplyChordEdits = async () => {
-    if (!result?.chords || !imageSrc) return;
-
-    // 收集所有修改后的和弦
-    const editedChords = result.chords.map((chord: any, index: number) => {
-      const input = document.getElementById(`chord-edit-${index}`) as HTMLInputElement;
-      return {
-        original: chord.original,
-        transposed: input.value || chord.transposed, // 如果为空，使用原值
-        x: chord.x,
-        y: chord.y,
-      };
-    });
-
-    setIsAdjusting(true);
-
-    try {
-      const response = await fetch(imageSrc);
-      const blob = await response.blob();
-      const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
-
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('targetKey', targetKey);
-      if (originalKey) {
-        formData.append('originalKey', originalKey);
-      }
-      formData.append('direction', direction);
-      formData.append('semitones', semitones.toString());
-      formData.append('chordColor', chordColor);
-      if (fontSize) {
-        formData.append('fontSize', fontSize.toString());
-      }
-      // 传递修改后的和弦列表
-      formData.append('editedChords', JSON.stringify(editedChords));
-
-      const apiResponse = await fetch('/api/transpose', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await apiResponse.json();
-      setResult(data);
-    } catch (error) {
-      console.error('修改和弦失败:', error);
-      alert('修改和弦失败，请稍后重试');
-    } finally {
-      setIsAdjusting(false);
-    }
-  };
-
   // 计算调数显示文本（半音数除以2）
   const getKeyStepDisplay = () => {
     if (semitones === '') return '';
@@ -982,7 +922,7 @@ export default function TransposePage() {
                     const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
                     const circleOuterSize = 60 * scaleFactor; // 外圆直径
                     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
-                    const textWidth = 230 * scaleFactor; // 文字框宽度（微调，更接近实际渲染宽度）
+                    const textWidth = 240 * scaleFactor; // 文字框宽度（与isTouchOnMarker保持一致）
 
                     return (
                       <div
@@ -1083,22 +1023,12 @@ export default function TransposePage() {
                         原调
                       </label>
                       {isAutoRecognized ? (
-                        <div className="space-y-2">
-                          <div className="w-full px-4 py-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center">
+                        <div className="space-y-1">
+                          <div className="w-full px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center">
                             {formatKeyLabel(originalKey)}
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-green-600 dark:text-green-400">
-                              （已自动识别）
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setIsAutoRecognized(false)}
-                              className="text-xs h-7 px-2"
-                            >
-                              修改
-                            </Button>
+                          <div className="text-xs text-green-600 dark:text-green-400 text-center">
+                            （已自动识别）
                           </div>
                         </div>
                       ) : (
@@ -1214,33 +1144,10 @@ export default function TransposePage() {
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span>转调结果</span>
-                        <div className="flex gap-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button size="sm" variant="ghost">
-                                <Settings className="w-4 h-4 mr-2" />
-                                调试日志
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-                              <DialogHeader>
-                                <DialogTitle>转调调试日志</DialogTitle>
-                                <DialogDescription>
-                                  查看详细的和弦转换过程
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="flex-1 overflow-auto">
-                                <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs whitespace-pre-wrap font-mono">
-                                  {result.debugLogs ? result.debugLogs.join('\n') : '暂无日志'}
-                                </pre>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                          <Button size="sm" variant="outline" onClick={handleDownload} disabled={isAdjusting}>
-                            <Download className="w-4 h-4 mr-2" />
-                            下载
-                          </Button>
-                        </div>
+                        <Button size="sm" variant="outline" onClick={handleDownload} disabled={isAdjusting}>
+                          <Download className="w-4 h-4 mr-2" />
+                          下载
+                        </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1337,60 +1244,12 @@ export default function TransposePage() {
                           </div>
                         </div>
                       ) : mounted && result.resultImage ? (
-                        <div className="flex flex-col gap-4">
-                          <div className="flex justify-center">
-                            <img
-                              src={result.resultImage}
-                              alt="转调结果"
-                              className="max-w-4xl w-full rounded-lg border shadow-lg"
-                            />
-                          </div>
-                          {/* 修改和弦按钮 */}
-                          <div className="flex justify-center">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                                  <Settings className="w-4 h-4 mr-2" />
-                                  修改和弦
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-                                <DialogHeader>
-                                  <DialogTitle>修改转调后的和弦</DialogTitle>
-                                  <DialogDescription>
-                                    可以手动修改每个转调后的和弦标记
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="flex-1 overflow-auto">
-                                  <div className="space-y-2">
-                                    {result.chords?.map((chord: any, index: number) => (
-                                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                        <span className="text-sm text-gray-500 dark:text-gray-400 w-16 shrink-0">
-                                          #{index + 1}
-                                        </span>
-                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 w-32 shrink-0">
-                                          原和弦: {chord.original}
-                                        </span>
-                                        <span className="text-gray-400">→</span>
-                                        <input
-                                          type="text"
-                                          defaultValue={chord.transposed}
-                                          className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                          id={`chord-edit-${index}`}
-                                        />
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="flex justify-end gap-2 pt-4 border-t">
-                                  <DialogTrigger asChild>
-                                    <Button variant="outline">取消</Button>
-                                  </DialogTrigger>
-                                  <Button onClick={() => handleApplyChordEdits()}>应用修改</Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </div>
+                        <div className="flex justify-center">
+                          <img
+                            src={result.resultImage}
+                            alt="转调结果"
+                            className="max-w-4xl w-full rounded-lg border shadow-lg"
+                          />
                         </div>
                       ) : mounted && !result.resultImage ? (
                         <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">

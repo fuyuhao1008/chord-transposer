@@ -47,8 +47,7 @@ export const ENHARMONIC_MAP: Record<string, string> = {
 
 // 和弦识别正则表达式（支持升降号在前/后和括号包围）
 // 匹配：C, C#, #C, (D), (D/F#), (#C), G7sus4, Am7, A7sus4, Asus4 等
-// bass部分格式：/F#, /bE, /#C, /Eb (支持升降号在前或在后)
-const CHORD_REGEX = /^(?:\()?([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?[A-G])?([#b][A-G])?)?(?:\))?$/i;
+const CHORD_REGEX = /^(?:\()?([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?[A-G])([#b])?)?(?:\))?$/i;
 
 class ChordTransposer {
   /**
@@ -72,8 +71,6 @@ class ChordTransposer {
   parseChord(chordString: string): Chord | null {
     let trimmed = chordString.trim();
 
-    console.log(`    [parseChord] 原始输入: "${chordString}"`);
-
     // 转换上标数字为普通数字（AI可能识别出上标字符）
     const superscriptMap: Record<string, string> = {
       '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
@@ -86,13 +83,10 @@ class ChordTransposer {
     const match = trimmed.match(CHORD_REGEX);
 
     if (!match) {
-      console.warn(`    [parseChord] ⚠️ 正则匹配失败: "${trimmed}"`);
       return null;
     }
 
     const [, accidentalFront, root, accidentalBack, qualityPart, bassPart, bassAccidental] = match;
-
-    console.log(`    [parseChord] 匹配结果: root="${root}", quality="${qualityPart}", bass="${bassPart}", bassAccidental="${bassAccidental}"`);
 
     // 合并升降号（优先使用前面的）
     const accidental = accidentalFront || accidentalBack || '';
@@ -113,29 +107,14 @@ class ChordTransposer {
       quality = qualityPart.toLowerCase() as ChordQuality;
     }
 
-    // 解析转位低音（格式：/F#, /bE, /#C, /Eb等）
+    // 解析转位低音（格式：/F#, /bE, /#C等）
     let normalizedBass: string | undefined;
-    
-    // 优先使用 bassAccidental（C#, Eb 格式），否则使用 bassPart（#C, bE 格式）
-    if (bassAccidental) {
-      // 格式如 C#, Eb, D#, F# 等
-      const bassMatch = bassAccidental.match(/^([A-G])([#b]?)$/i);
+    if (bassPart) {
+      const bassMatch = bassPart.match(/^([#b]?)([A-G])([#b]?)$/i);
       if (bassMatch) {
-        const [, bassRoot, bassAccBack] = bassMatch;
-        const rawBass = bassRoot + (bassAccBack || '');
-        console.log(`    [parseChord] 解析bass（后置升降号）: raw="${rawBass}"`);
-        normalizedBass = this.normalizeToSharp(rawBass);
-        console.log(`    [parseChord] 规范化后的bass: "${normalizedBass}"`);
-      }
-    } else if (bassPart) {
-      // 格式如 #C, bE, C 等
-      const bassMatch = bassPart.match(/^([#b]?)([A-G])$/i);
-      if (bassMatch) {
-        const [, bassAccFront, bassRoot] = bassMatch;
-        const rawBass = (bassAccFront || '') + bassRoot;
-        console.log(`    [parseChord] 解析bass（前置升降号）: raw="${rawBass}"`);
-        normalizedBass = this.normalizeToSharp(rawBass);
-        console.log(`    [parseChord] 规范化后的bass: "${normalizedBass}"`);
+        const [, bassAccFront, bassRoot, bassAccBack] = bassMatch;
+        const bassAccidental = bassAccFront || bassAccBack || '';
+        normalizedBass = this.normalizeToSharp(bassRoot + bassAccidental);
       }
     }
 
@@ -151,8 +130,6 @@ class ChordTransposer {
       bass: normalizedBass,
       hasParentheses,
     };
-
-    console.log(`    [parseChord] 最终结果:`, JSON.stringify(chord));
 
     return chord;
   }
@@ -186,15 +163,9 @@ class ChordTransposer {
     const newIndex = ((index + semitones) % 12 + 12) % 12;
     let newNote = CHROMATIC_SCALE[newIndex];
 
-    console.log(`    [shiftNote] ${note} (${index}) + ${semitones} = ${newNote} (${newIndex})`);
-
     // 等音转换（根据用户要求）
     if (useEnharmonic) {
-      const mapped = this.applyEnharmonicMapping(newNote);
-      if (mapped !== newNote) {
-        console.log(`    [shiftNote] 等音转换: ${newNote} -> ${mapped}`);
-      }
-      newNote = mapped;
+      newNote = this.applyEnharmonicMapping(newNote);
     }
 
     return newNote;
@@ -215,22 +186,16 @@ class ChordTransposer {
    * @param useEnharmonic 是否使用等音
    */
   transposeChord(chord: Chord, semitones: number, useEnharmonic: boolean = true): Chord {
-    console.log(`  [transposeChord] 原始和弦: ${JSON.stringify(chord)}, 半音数: ${semitones}, useEnharmonic: ${useEnharmonic}`);
-
     const newRoot = this.shiftNote(chord.root, semitones, useEnharmonic);
     const newBass = chord.bass ? this.shiftNote(chord.bass, semitones, useEnharmonic) : undefined;
 
-    const result = {
+    return {
       root: newRoot,
       quality: chord.quality,
       bass: newBass,
       x: chord.x,
       y: chord.y,
     };
-
-    console.log(`  [transposeChord] 转调后和弦: ${JSON.stringify(result)}`);
-
-    return result;
   }
 
   /**
