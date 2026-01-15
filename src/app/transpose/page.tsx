@@ -5,7 +5,15 @@ import { ALL_KEYS, getKeyIndex } from '@/lib/chord-transposer';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload, Music, Download, Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Upload, Music, Download, Loader2, Settings } from 'lucide-react';
 
 interface Point {
   x: number;
@@ -226,7 +234,6 @@ export default function TransposePage() {
   const [direction, setDirection] = useState<'up' | 'down' | ''>('');
   const [semitones, setSemitones] = useState<number | ''>('');
   const [result, setResult] = useState<any>(null);
-  const [showDebugLogs, setShowDebugLogs] = useState<boolean>(false); // 控制调试日志显示
   const [isRecognizing, setIsRecognizing] = useState<boolean>(false);
   const [isAutoRecognized, setIsAutoRecognized] = useState<boolean>(false); // 标记是否AI自动识别
   const [chordColor, setChordColor] = useState<string>('#2563EB'); // 默认改为蓝色
@@ -1025,17 +1032,21 @@ export default function TransposePage() {
                       </label>
                       {isAutoRecognized ? (
                         <div className="space-y-2">
-                          <div
-                            className="w-full px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center cursor-pointer hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
-                            onClick={() => setIsAutoRecognized(false)}
-                            title="点击可手动修改"
-                          >
+                          <div className="w-full px-4 py-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center">
                             {formatKeyLabel(originalKey)}
                           </div>
-                          <div className="text-center">
+                          <div className="flex items-center justify-between">
                             <span className="text-xs text-green-600 dark:text-green-400">
-                              （已自动识别，点击上方可修改）
+                              （已自动识别）
                             </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setIsAutoRecognized(false)}
+                              className="text-xs h-7 px-2"
+                            >
+                              修改
+                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -1152,9 +1163,27 @@ export default function TransposePage() {
                       <CardTitle className="flex items-center justify-between">
                         <span>转调结果</span>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => setShowDebugLogs(!showDebugLogs)}>
-                            {showDebugLogs ? '隐藏' : '显示'}调试日志
-                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button size="sm" variant="ghost">
+                                <Settings className="w-4 h-4 mr-2" />
+                                调试日志
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+                              <DialogHeader>
+                                <DialogTitle>转调调试日志</DialogTitle>
+                                <DialogDescription>
+                                  查看详细的和弦转换过程
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="flex-1 overflow-auto">
+                                <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs whitespace-pre-wrap font-mono">
+                                  {result.debugLogs ? result.debugLogs.join('\n') : '暂无日志'}
+                                </pre>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                           <Button size="sm" variant="outline" onClick={handleDownload} disabled={isAdjusting}>
                             <Download className="w-4 h-4 mr-2" />
                             下载
@@ -1270,25 +1299,6 @@ export default function TransposePage() {
                       ) : null}
                     </CardContent>
                   </Card>
-
-                  {/* 调试日志（可折叠） */}
-                  {showDebugLogs && result.debugLogs && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center justify-between">
-                          <span>调试日志</span>
-                          <span className="text-sm text-gray-500">
-                            {result.debugLogs.length} 条日志
-                          </span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <pre className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto max-h-96 text-xs whitespace-pre-wrap font-mono">
-                          {result.debugLogs.join('\n')}
-                        </pre>
-                      </CardContent>
-                    </Card>
-                  )}
 
                   {/* 原图对照 */}
                   <Card>
