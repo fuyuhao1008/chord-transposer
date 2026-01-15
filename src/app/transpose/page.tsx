@@ -792,6 +792,58 @@ export default function TransposePage() {
     link.click();
   };
 
+  // 应用和弦修改
+  const handleApplyChordEdits = async () => {
+    if (!result?.chords || !imageSrc) return;
+
+    // 收集所有修改后的和弦
+    const editedChords = result.chords.map((chord: any, index: number) => {
+      const input = document.getElementById(`chord-edit-${index}`) as HTMLInputElement;
+      return {
+        original: chord.original,
+        transposed: input.value || chord.transposed, // 如果为空，使用原值
+        x: chord.x,
+        y: chord.y,
+      };
+    });
+
+    setIsAdjusting(true);
+
+    try {
+      const response = await fetch(imageSrc);
+      const blob = await response.blob();
+      const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
+
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('targetKey', targetKey);
+      if (originalKey) {
+        formData.append('originalKey', originalKey);
+      }
+      formData.append('direction', direction);
+      formData.append('semitones', semitones.toString());
+      formData.append('chordColor', chordColor);
+      if (fontSize) {
+        formData.append('fontSize', fontSize.toString());
+      }
+      // 传递修改后的和弦列表
+      formData.append('editedChords', JSON.stringify(editedChords));
+
+      const apiResponse = await fetch('/api/transpose', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await apiResponse.json();
+      setResult(data);
+    } catch (error) {
+      console.error('修改和弦失败:', error);
+      alert('修改和弦失败，请稍后重试');
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
   // 计算调数显示文本（半音数除以2）
   const getKeyStepDisplay = () => {
     if (semitones === '') return '';
@@ -1285,12 +1337,60 @@ export default function TransposePage() {
                           </div>
                         </div>
                       ) : mounted && result.resultImage ? (
-                        <div className="flex justify-center">
-                          <img
-                            src={result.resultImage}
-                            alt="转调结果"
-                            className="max-w-4xl w-full rounded-lg border shadow-lg"
-                          />
+                        <div className="flex flex-col gap-4">
+                          <div className="flex justify-center">
+                            <img
+                              src={result.resultImage}
+                              alt="转调结果"
+                              className="max-w-4xl w-full rounded-lg border shadow-lg"
+                            />
+                          </div>
+                          {/* 修改和弦按钮 */}
+                          <div className="flex justify-center">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                                  <Settings className="w-4 h-4 mr-2" />
+                                  修改和弦
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                                <DialogHeader>
+                                  <DialogTitle>修改转调后的和弦</DialogTitle>
+                                  <DialogDescription>
+                                    可以手动修改每个转调后的和弦标记
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="flex-1 overflow-auto">
+                                  <div className="space-y-2">
+                                    {result.chords?.map((chord: any, index: number) => (
+                                      <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                        <span className="text-sm text-gray-500 dark:text-gray-400 w-16 shrink-0">
+                                          #{index + 1}
+                                        </span>
+                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 w-32 shrink-0">
+                                          原和弦: {chord.original}
+                                        </span>
+                                        <span className="text-gray-400">→</span>
+                                        <input
+                                          type="text"
+                                          defaultValue={chord.transposed}
+                                          className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                          id={`chord-edit-${index}`}
+                                        />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="flex justify-end gap-2 pt-4 border-t">
+                                  <DialogTrigger asChild>
+                                    <Button variant="outline">取消</Button>
+                                  </DialogTrigger>
+                                  <Button onClick={() => handleApplyChordEdits()}>应用修改</Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
                         </div>
                       ) : mounted && !result.resultImage ? (
                         <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
