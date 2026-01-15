@@ -201,43 +201,70 @@ export const ENHARMONIC_MAP: Record<string, string> = {
 // 和弦识别正则表达式（支持升降号在前/后）
 // 匹配：C, C#, #C, D, D/F#, G7sus4, Am7, A7sus4, Asus4 等
 // 修正：低音部分使用三个独立的匹配组，避免丢失升降号
-const CHORD_REGEX = /^([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?)([A-G])([#b]?))?$/i;
+// 注意：移除 i 标志，确保匹配严格（字母必须大写，升降号必须小写）
+const CHORD_REGEX = /^([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?)([A-G])([#b]?))?$/;
 
 class ChordTransposer {
   /**
    * 规范化音符为升号形式（用于内部处理）
    * 如 bB -> A#, bE -> D#, Bb -> A#, #F -> F#
+   * 使用三个独立的匹配分别处理不同格式
    */
   private normalizeToSharp(note: string): string {
+    console.log(`  normalizeToSharp 输入: "${note}"`);
+
     // 处理极端音记：E# → F, Fb → E, B# → C, Cb → B
     const extremeNoteMap: Record<string, string> = {
       'E#': 'F', 'Fb': 'E',
       'B#': 'C', 'Cb': 'B',
     };
     if (extremeNoteMap[note]) {
+      console.log(`  极端音记映射: ${note} -> ${extremeNoteMap[note]}`);
       return extremeNoteMap[note];
     }
 
-    // 规范化升降号位置：升降号在字母前移到字母后
     let normalized = note;
-    const match = note.match(/^([b#]?)([A-G])([b#]?)$/i);
-    if (match) {
-      const [, accFront, root, accBack] = match;
-      // 合并升降号（优先使用前面的）
-      if (accFront) {
-        normalized = root + accFront; // #F -> F#, bE -> Eb
-      } else {
-        normalized = root + (accBack || ''); // F# -> F#, C -> C
+
+    // 情况1：升降号在前 (#F, bE, bB)
+    const frontMatch = note.match(/^([#b])([A-Za-z])$/);
+    if (frontMatch) {
+      normalized = frontMatch[2].toUpperCase() + frontMatch[1];
+      console.log(`  升降号在前格式: ${note} -> ${normalized}`);
+    }
+    // 情况2：升降号在后 (F#, Eb, Bb)
+    else {
+      const backMatch = note.match(/^([A-Za-z])([#b])$/);
+      if (backMatch) {
+        normalized = backMatch[1].toUpperCase() + backMatch[2];
+        console.log(`  升降号在后格式: ${note} -> ${normalized}`);
+      }
+      // 情况3：纯音名 (C, D, E)
+      else {
+        const simpleMatch = note.match(/^([A-Za-z])$/);
+        if (simpleMatch) {
+          normalized = simpleMatch[1].toUpperCase();
+          console.log(`  纯音名格式: ${note} -> ${normalized}`);
+        } else {
+          console.log(`  无法识别的格式: ${note}`);
+        }
       }
     }
 
     // 检查是否已经是升号或基本音
     if (CHROMATIC_SCALE.includes(normalized)) {
+      console.log(`  已是升号形式: ${normalized}`);
       return normalized;
     }
 
     // 将降号转换为升号
-    return ENHARMONIC_MAP[normalized] || normalized;
+    const mapped = ENHARMONIC_MAP[normalized];
+    if (mapped) {
+      console.log(`  降号转升号: ${normalized} -> ${mapped}`);
+      return mapped;
+    }
+
+    console.log(`  无法转换，返回原值: ${normalized}`);
+    return normalized;
   }
 
   /**
@@ -702,15 +729,43 @@ class ChordTransposer {
    * 规范化调号（转换为标准格式）
    */
   normalizeKey(key: string): string {
-    const trimmed = key.trim().toUpperCase();
+    console.log(`  normalizeKey 输入: "${key}"`);
+
+    let trimmed = key.trim().toUpperCase();
+    console.log(`  转大写后: "${trimmed}"`);
+
+    // 移除空格（处理 "B b" -> "Bb"）
+    trimmed = trimmed.replace(/\s+/g, '');
+    console.log(`  移除空格后: "${trimmed}"`);
+
     // 处理 1=C 格式
     if (trimmed.startsWith('1=')) {
-      return trimmed.replace('1=', '');
+      trimmed = trimmed.replace('1=', '');
+      console.log(`  处理1=格式: "${trimmed}"`);
     }
     // 处理 Key: C 格式
-    if (trimmed.startsWith('KEY:')) {
-      return trimmed.replace('KEY:', '');
+    else if (trimmed.startsWith('KEY:')) {
+      trimmed = trimmed.replace('KEY:', '');
+      console.log(`  处理Key:格式: "${trimmed}"`);
     }
+
+    // 处理降号调的错误识别（AI把降号b识别成大写B）
+    const flatMappings: Record<string, string> = {
+      'BB': 'Bb', // AI把降号识别成大写B
+      'EE': 'Eb',
+      'AA': 'Ab',
+      'DD': 'Db',
+      'GG': 'Gb',
+      'CC': 'Cb',
+      'FF': 'F',  // F调没有降号
+    };
+
+    if (flatMappings[trimmed]) {
+      console.log(`  降号调错误识别修正: ${trimmed} -> ${flatMappings[trimmed]}`);
+      return flatMappings[trimmed];
+    }
+
+    console.log(`  normalizeKey 输出: "${trimmed}"`);
     return trimmed;
   }
 }
