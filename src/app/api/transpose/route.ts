@@ -97,27 +97,46 @@ export async function POST(request: NextRequest) {
     console.log('原始数据:', JSON.stringify(recognitionResult, null, 2));
     console.log('中心点数量:', rawCenters.length);
 
-    // 收集所有有效的中心点坐标
+    // 收集所有有效的中心点坐标（像素坐标）
     const validCenters = rawCenters.filter(
-      (c: any) => typeof c.cx === 'number' && typeof c.cy === 'number' && !isNaN(c.cx) && !isNaN(c.cy)
+      (c: any) => typeof c.cx === 'number' && typeof c.cy === 'number' && !isNaN(c.cx) && !isNaN(c.cy) &&
+                   c.cx >= 0 && c.cx <= imgWidth && c.cy >= 0 && c.cy <= imgHeight
     );
 
-    // 去重：移除坐标非常接近的重复和弦（阈值降低到1%）
+    // 去重和异常值检测（基于像素坐标）
     const dedupedCenters: any[] = [];
-    const distanceThreshold = 1; // 百分比距离阈值（1%）
+    const pixelDistanceThreshold = Math.max(imgWidth, imgHeight) * 0.015; // 1.5%的最大边长作为阈值（更精确）
+
+    // 检测异常Y值：计算所有和弦的Y坐标中位数
+    const yCoordinates = validCenters.map((c: any) => c.cy);
+    const sortedY = [...yCoordinates].sort((a: number, b: number) => a - b);
+    const medianY = sortedY[Math.floor(sortedY.length / 2)];
+    const yStdDev = Math.sqrt(yCoordinates.reduce((sum: number, y: number) => sum + Math.pow(y - medianY, 2), 0) / yCoordinates.length);
 
     for (const center of validCenters) {
       let isDuplicate = false;
 
-      // 检查是否与已存在的和弦太接近
+      // 异常值检测：排除Y坐标偏离中位数超过3个标准差的和弦
+      if (validCenters.length > 5 && Math.abs(center.cy - medianY) > 3 * yStdDev) {
+        console.log(`⚠️ 检测到异常Y坐标: ${center.text} 在 y=${center.cy}, 偏离中位数 ${medianY}，可能是误识别`);
+        continue;
+      }
+
+      // 去重：只有当和弦文本相同且距离很近时，才认为是重复
       for (const existing of dedupedCenters) {
-        const dx = Math.abs((center.cx / imgWidth) * 100 - (existing.cx / imgWidth) * 100);
-        const dy = Math.abs((center.cy / imgHeight) * 100 - (existing.cy / imgHeight) * 100);
+        // 先检查和弦文本是否相同（规范化比较）
+        if (center.text.toLowerCase().trim() !== existing.text.toLowerCase().trim()) {
+          continue; // 不同和弦，不进行距离检测
+        }
+
+        // 相同和弦，再检查距离
+        const dx = center.cx - existing.cx;
+        const dy = center.cy - existing.cy;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance < distanceThreshold) {
+        if (distance < pixelDistanceThreshold) {
           isDuplicate = true;
-          console.log(`⚠️ 检测到重复和弦: ${center.text} 与 ${existing.text} 距离 ${distance.toFixed(2)}%，跳过`);
+          console.log(`⚠️ 检测到重复和弦: ${center.text} 与 ${existing.text} 距离 ${distance.toFixed(1)}px，跳过`);
           break;
         }
       }
@@ -127,10 +146,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 显式排序：按Y坐标优先（从上到下），X坐标次之（从左到右）
+    dedupedCenters.sort((a: any, b: any) => {
+      if (Math.abs(a.cy - b.cy) < 30) { // Y坐标相差小于30像素，认为是同一行
+        return a.cx - b.cx; // 同一行按X排序
+      }
+      return a.cy - b.cy; // 不同行按Y排序
+    });
+
     console.log('========== 去重统计 ==========');
     console.log('原始数量:', validCenters.length);
     console.log('去重后数量:', dedupedCenters.length);
     console.log('移除重复:', validCenters.length - dedupedCenters.length);
+    console.log('Y坐标中位数:', medianY.toFixed(1), '标准差:', yStdDev.toFixed(1));
 
     if (dedupedCenters.length > 0) {
       if (userAnchorFirst && userAnchorLast) {
@@ -268,8 +296,9 @@ export async function POST(request: NextRequest) {
     let transposeResult;
     if (semitones !== 0) {
       // 用户指定了升降音数，使用新方法
-      transposeResult = chordTransposer.transposeChordsBySemitones(chords, originalKey, semitones, true);
-      console.log('使用升降音数转调:', semitones);
+      // 传入用户选择的目标调，确保显示的targetKey与用户选择一致
+      transposeResult = chordTransposer.transposeChordsBySemitones(chords, originalKey, semitones, true, targetKey);
+      console.log('使用升降音数转调:', semitones, '用户选择目标调:', targetKey);
     } else {
       // 使用目标调转调
       transposeResult = chordTransposer.transposeChords(chords, originalKey, targetKey, true);
@@ -392,12 +421,12 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
   2. 上标形式（浮在上半空间）：F^#、B^b、G^#m（类似 A7sus4 中 7、4 的上标）
   3. 前置形式：#F、bE（识别后请转换为标准形式 F#、Eb）
 - 无论升降号以何种形式出现，都应识别并返回标准格式（如 F# 而非 F^#）
-- ⚠️ 复合字符串识别（非常重要）：
-  - 如果和弦标记与重复记号紧邻，返回完整的字符串（如 CD.S.al.Fine.、D7Fine.）
-  - 常见格式：CD.S.al.Fine.、DD.S.al.Fine.、C Fine.、D7 Fine.
-  - 不要跳过任何和弦，即使它与重复记号紧邻
-  - 示例：看到 "CD.S.al.Fine."，必须返回 { "text": "CD.S.al.Fine.", "cx": xxx, "cy": xxx }
-  - 示例：看到 "D7Fine."，必须返回 { "text": "D7Fine.", "cx": xxx, "cy": xxx }
+- ⚠️ 终止标记和重复记号（非常重要）：
+  - Fine.、D.S.、D.C.、Segno、Coda 等是终止/重复记号，不是和弦，必须忽略
+  - 不要识别"Fine."、".Fine"等作为和弦
+  - 不要将"ine"、"Fine."等文本识别为和弦
+  - 如果看到"CD.S.al.Fine."，只识别"C"和弦，忽略后面的".S.al.Fine."
+  - 如果看到"D7Fine."，只识别"D7"和弦，忽略后面的"Fine."
 - 忽略歌词、简谱数字（1–7）、拍号（4/4 等）、速度标记
 
 ==============================
