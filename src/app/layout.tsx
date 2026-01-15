@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { VConsoleInit } from '@/components/vconsole-init';
 
 export const metadata: Metadata = {
   title: {
@@ -63,6 +64,7 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="antialiased">
         <ErrorBoundary>
+          <VConsoleInit />
           {children}
         </ErrorBoundary>
       </body>
