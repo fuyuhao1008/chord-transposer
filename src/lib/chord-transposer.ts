@@ -47,8 +47,8 @@ export const ENHARMONIC_MAP: Record<string, string> = {
 
 // 和弦识别正则表达式（支持升降号在前/后和括号包围）
 // 匹配：C, C#, #C, (D), (D/F#), (#C), G7sus4, Am7, A7sus4, Asus4 等
-// bass部分格式：/F#, /bE, /#C
-const CHORD_REGEX = /^(?:\()?([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?[A-G])([#b])?)?(?:\))?$/i;
+// bass部分格式：/F#, /bE, /#C, /Eb (支持升降号在前或在后)
+const CHORD_REGEX = /^(?:\()?([#b]?)([A-G])([#b]?)([a-z0-9]*)?(?:\/([#b]?[A-G])?([#b][A-G])?)?(?:\))?$/i;
 
 class ChordTransposer {
   /**
@@ -113,15 +113,27 @@ class ChordTransposer {
       quality = qualityPart.toLowerCase() as ChordQuality;
     }
 
-    // 解析转位低音（格式：/F#, /bE, /#C等）
+    // 解析转位低音（格式：/F#, /bE, /#C, /Eb等）
     let normalizedBass: string | undefined;
-    if (bassPart) {
-      const bassMatch = bassPart.match(/^([#b]?)([A-G])([#b]?)$/i);
+    
+    // 优先使用 bassAccidental（C#, Eb 格式），否则使用 bassPart（#C, bE 格式）
+    if (bassAccidental) {
+      // 格式如 C#, Eb, D#, F# 等
+      const bassMatch = bassAccidental.match(/^([A-G])([#b]?)$/i);
       if (bassMatch) {
-        const [, bassAccFront, bassRoot, bassAccBack] = bassMatch;
-        const bassAccidental = bassAccFront || bassAccBack || '';
-        const rawBass = bassRoot + bassAccidental;
-        console.log(`    [parseChord] 解析bass: raw="${rawBass}", accFront="${bassAccFront}", accBack="${bassAccBack}"`);
+        const [, bassRoot, bassAccBack] = bassMatch;
+        const rawBass = bassRoot + (bassAccBack || '');
+        console.log(`    [parseChord] 解析bass（后置升降号）: raw="${rawBass}"`);
+        normalizedBass = this.normalizeToSharp(rawBass);
+        console.log(`    [parseChord] 规范化后的bass: "${normalizedBass}"`);
+      }
+    } else if (bassPart) {
+      // 格式如 #C, bE, C 等
+      const bassMatch = bassPart.match(/^([#b]?)([A-G])$/i);
+      if (bassMatch) {
+        const [, bassAccFront, bassRoot] = bassMatch;
+        const rawBass = (bassAccFront || '') + bassRoot;
+        console.log(`    [parseChord] 解析bass（前置升降号）: raw="${rawBass}"`);
         normalizedBass = this.normalizeToSharp(rawBass);
         console.log(`    [parseChord] 规范化后的bass: "${normalizedBass}"`);
       }

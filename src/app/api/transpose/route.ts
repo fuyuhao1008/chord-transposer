@@ -44,10 +44,15 @@ export async function POST(request: NextRequest) {
         originalKey: originalKeyInput || 'C',
         targetKey: targetKey,
         semitones: parseInt(semitonesStr) || 0,
-        chords: editedChords.map((chord: any) => ({
-          original: chordTransposer.parseChord(chord.original) || { root: 'C', quality: '' },
-          transposed: chordTransposer.parseChord(chord.transposed) || { root: 'C', quality: '', x: chord.x, y: chord.y },
-        })),
+        chords: editedChords.map((chord: any) => {
+          const parsedOriginal = chordTransposer.parseChord(chord.original) || { root: 'C', quality: '' };
+          const parsedTransposed = chordTransposer.parseChord(chord.transposed) || { root: 'C', quality: '' };
+          
+          return {
+            original: { ...parsedOriginal },
+            transposed: { ...parsedTransposed, x: chord.x, y: chord.y },
+          };
+        }),
       };
 
       console.log('转调结果（使用修改后的和弦）:', transposeResult);
@@ -661,8 +666,8 @@ async function annotateImage(
     ctx.drawImage(image, 0, 0);
 
     // 计算字体大小：如果提供了自定义值则使用，否则动态计算
-    // 恢复到部署版本的合理大小范围（16-32），避免过小
-    const fontSize = customFontSize || Math.max(20, Math.min(32, Math.round(image.width / 40)));
+    // 使用之前的公式：最小20px，最大32px，比例image.width/35
+    const fontSize = customFontSize || Math.max(20, Math.min(32, Math.round(image.width / 35)));
     console.log('实际字体大小:', fontSize);
 
     // 设置字体（用于测量文本，使用跨平台兼容的中文字体栈）
@@ -829,10 +834,10 @@ async function annotateImage(
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
       const markFontSize = Math.max(20, Math.min(32, Math.round(image.width / 35))); // 增大字号
-      const markText = `由${originalKey}调转为${targetKey}调`;
+      const markText = `${originalKey} --> ${targetKey}`;
       const markPadding = 15;
 
-      // 计算文本尺寸（使用兼容性更好的中文字体栈）
+      // 计算文本尺寸（使用英文，避免中文乱码）
       ctx.font = `bold ${markFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif`;
       const markMetrics = ctx.measureText(markText);
       const markWidth = markMetrics.width;
