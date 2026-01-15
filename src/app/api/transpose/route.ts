@@ -254,17 +254,48 @@ export async function POST(request: NextRequest) {
 
     // 执行转调
     let transposeResult;
+    console.log('========== 开始转调 ==========');
+    console.log('原调:', originalKey);
+    console.log('目标调:', targetKey);
+    console.log('方向:', directionStr);
+    console.log('半音数:', semitonesStr, '=>', semitones);
+
+    // 收集转调过程的调试日志
+    const debugLogs: string[] = [];
+    debugLogs.push(`========== 开始转调 ==========`);
+    debugLogs.push(`原调: ${originalKey}`);
+    debugLogs.push(`目标调: ${targetKey}`);
+    debugLogs.push(`方向: ${directionStr}`);
+    debugLogs.push(`半音数: ${semitonesStr} => ${semitones}`);
+
+    // 暂存原始console.log，收集日志
+    const originalLog = console.log;
+    const collectedLogs: string[] = [];
+    console.log = (...args: any[]) => {
+      const logMessage = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+      collectedLogs.push(logMessage);
+      originalLog(...args);
+    };
+
     if (semitones !== 0) {
       // 用户指定了升降音数，使用新方法
+      debugLogs.push(`使用升降音数转调: ${semitones}`);
       transposeResult = chordTransposer.transposeChordsBySemitones(chords, originalKey, semitones, true);
       console.log('使用升降音数转调:', semitones);
     } else {
       // 使用目标调转调
+      debugLogs.push(`使用目标调转调: ${targetKey}`);
       transposeResult = chordTransposer.transposeChords(chords, originalKey, targetKey, true);
       console.log('使用目标调转调:', targetKey);
     }
 
     console.log('转调结果:', transposeResult);
+
+    // 恢复console.log
+    console.log = originalLog;
+
+    // 将收集的日志合并到debugLogs
+    debugLogs.push(...collectedLogs);
 
     // 处理字体大小参数
     let fontSize = null;
@@ -299,6 +330,7 @@ export async function POST(request: NextRequest) {
       })),
       resultImage: resultImage,
       recognition: recognitionResult,
+      debugLogs: debugLogs, // 返回调试日志供前端显示
     });
   } catch (error) {
     console.error('转调处理错误:', error);
@@ -553,8 +585,8 @@ async function annotateImage(
     const fontSize = customFontSize || Math.max(16, Math.min(28, Math.round(image.width / 45)));
     console.log('实际字体大小:', fontSize);
 
-    // 设置字体（用于测量文本）
-    ctx.font = `normal ${fontSize}px Arial, Helvetica, sans-serif`;
+    // 设置字体（用于测量文本，使用跨平台兼容的中文字体栈）
+    ctx.font = `normal ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif`;
 
     // 第一步：遍历所有和弦，计算并存储背景框和文本信息
     type ChordDrawInfo = {
@@ -720,8 +752,8 @@ async function annotateImage(
       const markText = `由${originalKey}调转为${targetKey}调`;
       const markPadding = 15;
 
-      // 计算文本尺寸
-      ctx.font = `bold ${markFontSize}px Arial, "Microsoft YaHei", sans-serif`;
+      // 计算文本尺寸（使用兼容性更好的中文字体栈）
+      ctx.font = `bold ${markFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif`;
       const markMetrics = ctx.measureText(markText);
       const markWidth = markMetrics.width;
       const markHeight = markFontSize * 1.2;

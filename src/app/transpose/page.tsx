@@ -182,7 +182,7 @@ function CalibrationMarker({
             color: '#ffffff',
             fontWeight: 400,
             marginBottom: textPadding / 2,
-            fontFamily: '"Microsoft YaHei", "Segoe UI", sans-serif',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif',
             lineHeight: 1.4,
           }}
         >
@@ -195,7 +195,7 @@ function CalibrationMarker({
             fontSize: textFontSize,
             color: '#ffffff',
             fontWeight: 400,
-            fontFamily: '"Microsoft YaHei", "Segoe UI", sans-serif',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif',
             lineHeight: 1.4,
           }}
         >
@@ -226,6 +226,7 @@ export default function TransposePage() {
   const [direction, setDirection] = useState<'up' | 'down' | ''>('');
   const [semitones, setSemitones] = useState<number | ''>('');
   const [result, setResult] = useState<any>(null);
+  const [showDebugLogs, setShowDebugLogs] = useState<boolean>(false); // 控制调试日志显示
   const [isRecognizing, setIsRecognizing] = useState<boolean>(false);
   const [isAutoRecognized, setIsAutoRecognized] = useState<boolean>(false); // 标记是否AI自动识别
   const [chordColor, setChordColor] = useState<string>('#2563EB'); // 默认改为蓝色
@@ -579,7 +580,7 @@ export default function TransposePage() {
     const circleOuterSize = 60 * scaleFactor; // 外圆直径
     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
     // 文字框实际尺寸（根据文字内容计算）
-    const textWidth = 240 * scaleFactor; // 文字框宽度（更精确，略微缩小）
+    const textWidth = 230 * scaleFactor; // 文字框宽度（微调，更接近实际渲染宽度）
     const textHeight = 70 * scaleFactor; // 文字框高度（两行文字）
     const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
     const totalHeight = Math.max(circleOuterSize, textHeight); // 总高度
@@ -922,7 +923,7 @@ export default function TransposePage() {
                     const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
                     const circleOuterSize = 60 * scaleFactor; // 外圆直径
                     const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
-                    const textWidth = 240 * scaleFactor; // 文字框宽度（与isTouchOnMarker保持一致）
+                    const textWidth = 230 * scaleFactor; // 文字框宽度（微调，更接近实际渲染宽度）
 
                     return (
                       <div
@@ -1023,12 +1024,18 @@ export default function TransposePage() {
                         原调
                       </label>
                       {isAutoRecognized ? (
-                        <div className="space-y-1">
-                          <div className="w-full px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center">
+                        <div className="space-y-2">
+                          <div
+                            className="w-full px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg font-semibold text-center cursor-pointer hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                            onClick={() => setIsAutoRecognized(false)}
+                            title="点击可手动修改"
+                          >
                             {formatKeyLabel(originalKey)}
                           </div>
-                          <div className="text-xs text-green-600 dark:text-green-400 text-center">
-                            （已自动识别）
+                          <div className="text-center">
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                              （已自动识别，点击上方可修改）
+                            </span>
                           </div>
                         </div>
                       ) : (
@@ -1144,10 +1151,15 @@ export default function TransposePage() {
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span>转调结果</span>
-                        <Button size="sm" variant="outline" onClick={handleDownload} disabled={isAdjusting}>
-                          <Download className="w-4 h-4 mr-2" />
-                          下载
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => setShowDebugLogs(!showDebugLogs)}>
+                            {showDebugLogs ? '隐藏' : '显示'}调试日志
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={handleDownload} disabled={isAdjusting}>
+                            <Download className="w-4 h-4 mr-2" />
+                            下载
+                          </Button>
+                        </div>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1258,6 +1270,25 @@ export default function TransposePage() {
                       ) : null}
                     </CardContent>
                   </Card>
+
+                  {/* 调试日志（可折叠） */}
+                  {showDebugLogs && result.debugLogs && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                          <span>调试日志</span>
+                          <span className="text-sm text-gray-500">
+                            {result.debugLogs.length} 条日志
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <pre className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto max-h-96 text-xs whitespace-pre-wrap font-mono">
+                          {result.debugLogs.join('\n')}
+                        </pre>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   {/* 原图对照 */}
                   <Card>

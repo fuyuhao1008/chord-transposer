@@ -163,9 +163,15 @@ class ChordTransposer {
     const newIndex = ((index + semitones) % 12 + 12) % 12;
     let newNote = CHROMATIC_SCALE[newIndex];
 
+    console.log(`    [shiftNote] ${note} (${index}) + ${semitones} = ${newNote} (${newIndex})`);
+
     // 等音转换（根据用户要求）
     if (useEnharmonic) {
-      newNote = this.applyEnharmonicMapping(newNote);
+      const mapped = this.applyEnharmonicMapping(newNote);
+      if (mapped !== newNote) {
+        console.log(`    [shiftNote] 等音转换: ${newNote} -> ${mapped}`);
+      }
+      newNote = mapped;
     }
 
     return newNote;
@@ -186,16 +192,22 @@ class ChordTransposer {
    * @param useEnharmonic 是否使用等音
    */
   transposeChord(chord: Chord, semitones: number, useEnharmonic: boolean = true): Chord {
+    console.log(`  [transposeChord] 原始和弦: ${JSON.stringify(chord)}, 半音数: ${semitones}, useEnharmonic: ${useEnharmonic}`);
+
     const newRoot = this.shiftNote(chord.root, semitones, useEnharmonic);
     const newBass = chord.bass ? this.shiftNote(chord.bass, semitones, useEnharmonic) : undefined;
 
-    return {
+    const result = {
       root: newRoot,
       quality: chord.quality,
       bass: newBass,
       x: chord.x,
       y: chord.y,
     };
+
+    console.log(`  [transposeChord] 转调后和弦: ${JSON.stringify(result)}`);
+
+    return result;
   }
 
   /**
