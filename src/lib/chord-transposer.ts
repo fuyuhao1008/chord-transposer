@@ -293,6 +293,7 @@ class ChordTransposer {
    * 也支持后缀格式，如 "D7Fine." → "D7", "C D.S.al.Fine." → "C"
    */
   parseChord(chordString: string): Chord | null {
+    console.log(`  解析和弦: "${chordString}"`);
     let trimmed = chordString.trim();
 
     // 转换上标数字为普通数字（AI可能识别出上标字符）
@@ -303,6 +304,7 @@ class ChordTransposer {
     for (const [sup, normal] of Object.entries(superscriptMap)) {
       trimmed = trimmed.replace(new RegExp(sup, 'g'), normal);
     }
+    console.log(`  上标转换后: "${trimmed}"`);
 
     // 检测是否有括号（必须同时有左右括号）
     const hasParentheses = trimmed.startsWith('(') && trimmed.endsWith(')');
@@ -310,6 +312,7 @@ class ChordTransposer {
     // 如果有括号，去掉括号后再匹配
     if (hasParentheses) {
       trimmed = trimmed.slice(1, -1);
+      console.log(`  去除括号后: "${trimmed}"`);
     }
 
     // 尝试去除重复记号后缀（D.S.al.Fine., Fine. 等）
@@ -317,8 +320,10 @@ class ChordTransposer {
     for (const suffix of suffixes) {
       if (trimmed.endsWith(suffix)) {
         trimmed = trimmed.slice(0, -suffix.length).trim();
+        console.log(`  去除后缀 ${suffix}: "${trimmed}"`);
         // 如果去掉后缀后是空的，说明整个字符串就是后缀，无法识别
         if (!trimmed) {
+          console.log(`  去除后缀后为空，返回null`);
           return null;
         }
       }
@@ -327,7 +332,10 @@ class ChordTransposer {
     // 去除可能存在的点号（例如 "C." → "C"）
     if (trimmed.endsWith('.') && trimmed.length > 1) {
       trimmed = trimmed.slice(0, -1);
+      console.log(`  去除尾部点号: "${trimmed}"`);
     }
+
+    console.log(`  最终匹配文本: "${trimmed}"`);
 
     const match = trimmed.match(CHORD_REGEX);
 
@@ -590,10 +598,11 @@ class ChordTransposer {
   /**
    * 判断和弦是否"不可能"（根音与低音形成极不和谐的音程）
    * 判断规则：
-   * 1. 只禁止极度不和谐的小二度（1半音）和减三度（3半音）
+   * 1. 只禁止极度不和谐的小二度（1半音）
    * 2. 其他音程都允许，包括：
    *    - 同音（0半音）
    *    - 大二度（2半音）：如 C/D
+   *    - 减三度（3半音）：如 D/F，爵士乐中允许
    *    - 大三度（4半音）：如 C/E
    *    - 纯四度（5半音）：如 C/F
    *    - 增四度/减五度（6半音）：如 C/F#，爵士乐中常见
@@ -613,10 +622,8 @@ class ChordTransposer {
     let interval = bassIndex - rootIndex;
     if (interval < 0) interval += 12;
 
-    // 只禁止极度不和谐的音程：
-    // 1. 小二度（1半音）：如 C-Db，极度不和谐
-    // 2. 减三度（3半音）：如 C-Eb，不和谐
-    const unacceptableIntervals = [1, 3];
+    // 只禁止极度不和谐的小二度（1半音）
+    const unacceptableIntervals = [1];
 
     return unacceptableIntervals.includes(interval);
   }

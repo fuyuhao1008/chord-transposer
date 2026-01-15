@@ -563,7 +563,7 @@ async function annotateImage(
     const fontSize = customFontSize || Math.max(16, Math.min(28, Math.round(image.width / 45)));
 
     // 设置字体（用于测量文本）
-    ctx.font = `normal ${fontSize}px Arial, Helvetica, sans-serif`;
+    ctx.font = `normal ${fontSize}px Georgia, serif`;
 
     // 第一步：遍历所有和弦，计算并存储背景框和文本信息
     type ChordDrawInfo = {
@@ -706,7 +706,7 @@ async function annotateImage(
       const markPadding = 15;
 
       // 计算文本尺寸
-      ctx.font = `normal ${markFontSize}px "Times New Roman", Times, serif`; // Times Roman字体，不加粗
+      ctx.font = `normal ${markFontSize}px Georgia, serif`; // Georgia字体，不加粗
       const markMetrics = ctx.measureText(markText);
       const markWidth = markMetrics.width;
       const markHeight = markFontSize * 1.2;
@@ -729,8 +729,6 @@ async function annotateImage(
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.fillText(markText, markX, markY - markHeight);
-
-      console.log('✓ 已绘制转调标记:', markText, '在左上角，字体: Times Roman, 字号:', markFontSize);
     }
 
     // 转换为 Buffer
