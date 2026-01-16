@@ -891,7 +891,7 @@ export default function TransposePage() {
         {mounted && (pageState === 'locating_first' || pageState === 'locating_last') && imageSrc && (
           <div className="flex justify-center mb-3">
             <Card className="w-full max-w-4xl">
-              <CardHeader>
+              <CardHeader className="pb-2">
                 <CardTitle className="flex items-center justify-between">
                   <span>定位和弦分布</span>
                   <Button
@@ -906,10 +906,10 @@ export default function TransposePage() {
               </CardHeader>
 
               {/* 提示条（定位阶段） */}
-              <div className="mb-4 bg-indigo-600 text-white px-6 py-4 rounded-lg text-center font-semibold text-lg shadow-lg animate-pulse">
+              <div className="mb-2 bg-indigo-600 text-white px-6 py-3 rounded-lg text-center font-semibold text-lg shadow-lg animate-pulse">
                 {pageState === 'locating_first'
                   ? (isMobile
-                      ? <><div>请点击图中【第一个】和弦标记</div><div className="text-sm mt-1 font-normal">（可以放大图片查看）</div></>
+                      ? <><div>请点击图中【第一个】和弦标记</div><div className="text-sm mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
                       : '请点击图中【第一个】和弦标记')
                   : (isMobile
                       ? <><div>现在请点击图中【最后一个】和弦标记</div><div className="text-sm mt-1 font-normal">长按图标可拖动微调</div></>
