@@ -27,7 +27,7 @@ echo "✓ Dependencies installed"
 echo ""
 
 echo "Step 2: Building project..."
-# 禁用遥测收集
+# 使用环境变量禁用遥测收集
 NEXT_TELEMETRY_DISABLED=1 pnpm build || {
     echo "ERROR: Build failed"
     exit 1
@@ -49,30 +49,58 @@ else
     exit 1
 fi
 
-echo "Step 4: Verifying .next/standalone directory..."
-if [ -d ".next/standalone" ]; then
-    echo "✓ .next/standalone directory was created by Next.js"
-    echo "  Server file exists:"
-    [ -f ".next/standalone/workspace/projects/server.js" ] && echo "  ✓ server.js" || echo "  ✗ server.js missing"
+echo "Step 4: Detecting standalone directory structure..."
+# 查找server.js在standalone目录中的实际位置
+STANDALONE_SERVER=""
+STANDALONE_ROOT=""
+
+# 检查各种可能的路径
+if [ -f ".next/standalone/server.js" ]; then
+    STANDALONE_ROOT=".next/standalone"
+    STANDALONE_SERVER=".next/standalone/server.js"
+    echo "Found: .next/standalone/server.js (root level)"
+
+elif [ -f ".next/standalone/workspace/projects/server.js" ]; then
+    STANDALONE_ROOT=".next/standalone/workspace/projects"
+    STANDALONE_SERVER=".next/standalone/workspace/projects/server.js"
+    echo "Found: .next/standalone/workspace/projects/server.js (nested)"
+
+elif [ -d ".next/standalone" ]; then
+    echo "Searching for server.js in .next/standalone..."
+    STANDALONE_SERVER=$(find .next/standalone -name "server.js" -type f -not -path "*/node_modules/*" 2>/dev/null | head -1)
+    if [ -n "$STANDALONE_SERVER" ]; then
+        STANDALONE_ROOT=$(dirname "$STANDALONE_SERVER")
+        echo "Found: $STANDALONE_SERVER (auto-detected)"
+    fi
+fi
+
+if [ -z "$STANDALONE_SERVER" ]; then
+    echo "ERROR: Cannot find server.js in .next/standalone directory"
     echo ""
-else
-    echo "ERROR: .next/standalone directory was not created by Next.js build"
+    echo "Listing .next/standalone directory:"
+    find .next/standalone -type f -not -path "*/node_modules/*" 2>/dev/null | head -20 || echo "Directory empty or missing"
     exit 1
 fi
+
+echo "✓ Standalone directory structure detected"
+echo "  Root: $STANDALONE_ROOT"
+echo "  Server: $STANDALONE_SERVER"
+echo ""
 
 echo "Step 5: Copying public directory to standalone output..."
 if [ -d "public" ]; then
     echo "Public directory exists"
-    if [ -d ".next/standalone/workspace/projects" ]; then
-        echo "Copying public directory..."
-        cp -rf public .next/standalone/workspace/projects/ || {
+    if [ -d "$STANDALONE_ROOT" ]; then
+        echo "Copying public directory to $STANDALONE_ROOT..."
+        cp -rf public "$STANDALONE_ROOT/" || {
             echo "ERROR: Failed to copy public directory"
             exit 1
         }
-        PUBLIC_COUNT=$(find .next/standalone/workspace/projects/public -type f | wc -l)
+        PUBLIC_COUNT=$(find "$STANDALONE_ROOT/public" -type f | wc -l)
         echo "✓ Public directory copied ($PUBLIC_COUNT files)"
     else
-        echo "WARNING: .next/standalone/workspace/projects directory not found, skipping public copy"
+        echo "ERROR: Standalone root directory does not exist: $STANDALONE_ROOT"
+        exit 1
     fi
 else
     echo "WARNING: Public directory not found, skipping public copy"
@@ -81,17 +109,17 @@ echo ""
 
 echo "Step 6: Copying static files to standalone output..."
 if [ -d ".next/static" ]; then
-    if [ -d ".next/standalone/workspace/projects/.next" ]; then
-        echo "Target directory: .next/standalone/workspace/projects/.next/static"
+    if [ -d "$STANDALONE_ROOT/.next" ]; then
+        echo "Target directory: $STANDALONE_ROOT/.next/static"
 
         # 先删除旧的目标目录（如果存在），确保干净的复制
-        if [ -d ".next/standalone/workspace/projects/.next/static" ]; then
-            rm -rf .next/standalone/workspace/projects/.next/static
+        if [ -d "$STANDALONE_ROOT/.next/static" ]; then
+            rm -rf "$STANDALONE_ROOT/.next/static"
             echo "Removed old static directory"
         fi
 
         # 复制整个.next/static目录
-        cp -r .next/static .next/standalone/workspace/projects/.next/ || {
+        cp -r .next/static "$STANDALONE_ROOT/.next/" || {
             echo "ERROR: Failed to copy .next/static directory"
             exit 1
         }
@@ -99,7 +127,7 @@ if [ -d ".next/static" ]; then
         echo "✓ Static files copied successfully"
         echo ""
         echo "Verification:"
-        DEST_COUNT=$(find .next/standalone/workspace/projects/.next/static -type f | wc -l)
+        DEST_COUNT=$(find "$STANDALONE_ROOT/.next/static" -type f | wc -l)
         echo "  Source files: $SOURCE_COUNT"
         echo "  Destination files: $DEST_COUNT"
 
@@ -109,7 +137,7 @@ if [ -d ".next/static" ]; then
             echo "⚠ File count difference: $((DEST_COUNT - SOURCE_COUNT))"
         fi
     else
-        echo "ERROR: .next/standalone/workspace/projects/.next directory not found"
+        echo "ERROR: .next directory does not exist in standalone root: $STANDALONE_ROOT/.next"
         exit 1
     fi
 else
@@ -121,9 +149,9 @@ echo ""
 echo "Step 7: Verifying critical build artifacts..."
 echo "Checking essential files:"
 ESSENTIAL_FILES=(
-    ".next/standalone/workspace/projects/server.js"
-    ".next/standalone/workspace/projects/.next/static/chunks"
-    ".next/standalone/workspace/projects/.next/server/app"
+    "$STANDALONE_SERVER"
+    "$STANDALONE_ROOT/.next/static/chunks"
+    "$STANDALONE_ROOT/.next/server"
 )
 
 for file in "${ESSENTIAL_FILES[@]}"; do
@@ -138,7 +166,11 @@ echo ""
 
 echo "Step 8: Final structure check..."
 echo "Standalone directory tree:"
-tree -L 3 -d .next/standalone/workspace/projects/.next/ 2>/dev/null || find .next/standalone/workspace/projects/.next/ -maxdepth 3 -type d | head -20
+if command -v tree >/dev/null 2>&1; then
+    tree -L 3 -d "$STANDALONE_ROOT/" 2>/dev/null || find "$STANDALONE_ROOT/" -maxdepth 3 -type d | head -20
+else
+    find "$STANDALONE_ROOT/" -maxdepth 3 -type d | head -20
+fi
 echo ""
 
 echo "=== Build process completed successfully ==="
