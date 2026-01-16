@@ -909,11 +909,11 @@ export default function TransposePage() {
               <div className="mb-1 mx-6 bg-indigo-600 text-white px-6 py-3 rounded-lg text-center font-semibold text-lg shadow-lg animate-pulse">
                 {pageState === 'locating_first'
                   ? (isMobile
-                      ? <><div>请点击图中【第一个】和弦标记</div><div className="mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
-                      : '请点击图中【第一个】和弦标记')
+                      ? <><div className="text-lg">请点击图中【第一个】和弦标记</div><div className="text-lg mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
+                      : <div className="text-lg">请点击图中【第一个】和弦标记</div>)
                   : (isMobile
-                      ? <><div>现在请点击图中【最后一个】和弦标记</div><div className="mt-1 font-normal text-red-300">完成后请点击最底部的确认按钮</div></>
-                      : <><div>现在请点击图中【最后一个】和弦标记</div><div className="mt-1 font-normal">可拖动标记进行微调</div></>)}
+                      ? <><div className="text-lg">现在请点击图中【最后一个】和弦标记</div><div className="text-lg mt-1 font-normal text-red-300">完成后请点击最底部的确认按钮</div></>
+                      : <><div className="text-lg">现在请点击图中【最后一个】和弦标记</div><div className="text-lg mt-1 font-normal">可拖动标记进行微调</div></>)}
               </div>
 
               <CardContent className="px-6 pt-1 pb-6">
