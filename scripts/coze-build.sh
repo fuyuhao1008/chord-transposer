@@ -26,9 +26,9 @@ pnpm install || {
 echo "✓ Dependencies installed"
 echo ""
 
-echo "Step 2: Building the project..."
+echo "Step 2: Building project..."
 # 禁用遥测收集
-pnpm build --no-telemetry || {
+NEXT_TELEMETRY_DISABLED=1 pnpm build || {
     echo "ERROR: Build failed"
     exit 1
 }
