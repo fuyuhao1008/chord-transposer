@@ -890,8 +890,8 @@ export default function TransposePage() {
         {/* 定位阶段：图片居中显示 */}
         {mounted && (pageState === 'locating_first' || pageState === 'locating_last') && imageSrc && (
           <div className="flex justify-center mb-3">
-            <Card className="w-full max-w-4xl !p-0">
-              <CardHeader className="px-6 pt-4 pb-1">
+            <Card className="w-full max-w-4xl !p-0 !py-0 !gap-0">
+              <CardHeader className="px-6 pt-4 pb-1 !gap-0">
                 <CardTitle className="flex items-center justify-between">
                   <span>定位和弦分布</span>
                   <Button
