@@ -27,7 +27,8 @@ echo "✓ Dependencies installed"
 echo ""
 
 echo "Step 2: Building the project..."
-pnpm build || {
+# 禁用遥测收集
+pnpm build --no-telemetry || {
     echo "ERROR: Build failed"
     exit 1
 }
@@ -38,29 +39,26 @@ echo ""
 echo "Step 3: Verifying .next/static directory..."
 if [ -d ".next/static" ]; then
     echo "✓ .next/static directory exists"
-    echo "Contents of .next/static:"
-    ls -la .next/static/ || echo "Cannot list"
-    echo ""
-    echo "Sample files in .next/static/chunks:"
-    ls .next/static/chunks/ | head -10 || echo "Cannot list chunks"
+    SOURCE_COUNT=$(find .next/static -type f | wc -l)
+    echo "  Total static files: $SOURCE_COUNT"
+    echo "  Sample chunks:"
+    ls .next/static/chunks/ | head -5 2>/dev/null || echo "  (no chunks)"
     echo ""
 else
     echo "ERROR: .next/static directory does not exist after build"
     exit 1
 fi
-echo ""
 
 echo "Step 4: Verifying .next/standalone directory..."
 if [ -d ".next/standalone" ]; then
     echo "✓ .next/standalone directory was created by Next.js"
-    echo "Structure:"
-    ls -la .next/standalone/workspace/projects/ 2>/dev/null || echo "Cannot list"
+    echo "  Server file exists:"
+    [ -f ".next/standalone/workspace/projects/server.js" ] && echo "  ✓ server.js" || echo "  ✗ server.js missing"
     echo ""
 else
     echo "ERROR: .next/standalone directory was not created by Next.js build"
     exit 1
 fi
-echo ""
 
 echo "Step 5: Copying public directory to standalone output..."
 if [ -d "public" ]; then
@@ -71,7 +69,8 @@ if [ -d "public" ]; then
             echo "ERROR: Failed to copy public directory"
             exit 1
         }
-        echo "✓ Public directory copied successfully"
+        PUBLIC_COUNT=$(find .next/standalone/workspace/projects/public -type f | wc -l)
+        echo "✓ Public directory copied ($PUBLIC_COUNT files)"
     else
         echo "WARNING: .next/standalone/workspace/projects directory not found, skipping public copy"
     fi
@@ -82,10 +81,8 @@ echo ""
 
 echo "Step 6: Copying static files to standalone output..."
 if [ -d ".next/static" ]; then
-    echo "Source .next/static directory exists"
     if [ -d ".next/standalone/workspace/projects/.next" ]; then
         echo "Target directory: .next/standalone/workspace/projects/.next/static"
-        echo "Copying static files..."
 
         # 先删除旧的目标目录（如果存在），确保干净的复制
         if [ -d ".next/standalone/workspace/projects/.next/static" ]; then
@@ -101,22 +98,15 @@ if [ -d ".next/static" ]; then
 
         echo "✓ Static files copied successfully"
         echo ""
-        echo "Verification of copied directory:"
-        ls -la .next/standalone/workspace/projects/.next/static/ || echo "Cannot list"
-        echo ""
-        echo "Verifying copied chunks:"
-        ls .next/standalone/workspace/projects/.next/static/chunks/ | head -10 || echo "Cannot list chunks"
-        echo ""
-        echo "Checking file count:"
-        SOURCE_COUNT=$(find .next/static -type f | wc -l)
-        TARGET_COUNT=$(find .next/standalone/workspace/projects/.next/static -type f | wc -l)
+        echo "Verification:"
+        DEST_COUNT=$(find .next/standalone/workspace/projects/.next/static -type f | wc -l)
         echo "  Source files: $SOURCE_COUNT"
-        echo "  Target files: $TARGET_COUNT"
+        echo "  Destination files: $DEST_COUNT"
 
-        if [ "$SOURCE_COUNT" -ne "$TARGET_COUNT" ]; then
-            echo "WARNING: File count mismatch!"
+        if [ "$SOURCE_COUNT" -eq "$DEST_COUNT" ]; then
+            echo "✓ File counts match"
         else
-            echo "✓ File count matches"
+            echo "⚠ File count difference: $((DEST_COUNT - SOURCE_COUNT))"
         fi
     else
         echo "ERROR: .next/standalone/workspace/projects/.next directory not found"
@@ -128,35 +118,31 @@ else
 fi
 echo ""
 
-echo "Step 7: Final verification..."
-if [ -d ".next/standalone" ]; then
-    echo "✓ Standalone directory exists"
-    echo ""
-    echo "Directory structure:"
-    ls -la .next/standalone/workspace/projects/ 2>/dev/null || echo "Cannot list"
-    echo ""
+echo "Step 7: Verifying critical build artifacts..."
+echo "Checking essential files:"
+ESSENTIAL_FILES=(
+    ".next/standalone/workspace/projects/server.js"
+    ".next/standalone/workspace/projects/.next/static/chunks"
+    ".next/standalone/workspace/projects/.next/server/app"
+)
 
-    echo "Searching for server.js:"
-    find .next/standalone -name "server.js" -type f -not -path "*/node_modules/*" 2>/dev/null | head -3 || echo "server.js not found"
-    echo ""
-
-    echo "Checking for copied resources:"
-    echo "  - Public dir:"
-    [ -d ".next/standalone/workspace/projects/public" ] && echo "    ✓ exists" || echo "    ✗ missing"
-    echo "  - Static dir:"
-    [ -d ".next/standalone/workspace/projects/.next/static" ] && echo "    ✓ exists" || echo "    ✗ missing"
-    echo "  - Static chunks:"
-    [ -d ".next/standalone/workspace/projects/.next/static/chunks" ] && echo "    ✓ exists" || echo "    ✗ missing"
-    echo ""
-    echo "Checking static file sample:"
-    if [ -d ".next/standalone/workspace/projects/.next/static/chunks" ]; then
-        FILE_COUNT=$(ls .next/standalone/workspace/projects/.next/static/chunks/ | wc -l)
-        echo "  Chunk files: $FILE_COUNT"
+for file in "${ESSENTIAL_FILES[@]}"; do
+    if [ -e "$file" ]; then
+        echo "  ✓ $file"
+    else
+        echo "  ✗ Missing: $file"
+        exit 1
     fi
-else
-    echo "ERROR: Standalone directory not found"
-    exit 1
-fi
-
+done
 echo ""
+
+echo "Step 8: Final structure check..."
+echo "Standalone directory tree:"
+tree -L 3 -d .next/standalone/workspace/projects/.next/ 2>/dev/null || find .next/standalone/workspace/projects/.next/ -maxdepth 3 -type d | head -20
+echo ""
+
 echo "=== Build process completed successfully ==="
+echo ""
+echo "Next steps:"
+echo "  1. Run './scripts/verify-build.sh' for detailed verification"
+echo "  2. Deploy to production"

@@ -1,9 +1,21 @@
 #!/bin/bash
 set -Eeuo pipefail
 
-echo "=== Starting Next.js server ==="
+echo "=== Starting Next.js Server ==="
 echo "Current directory: $(pwd)"
-echo "PORT environment variable: ${PORT:-not set}"
+echo "PORT environment variable: ${PORT:-not set (will use 5000)}"
+echo ""
+
+# 设置环境变量
+export PORT="${PORT:-5000}"
+export NODE_ENV="production"
+export NEXT_TELEMETRY_DISABLED=1
+export __NEXT_PRIVATE_STANDALONE_CONFIG=1
+
+echo "Environment configuration:"
+echo "  PORT=$PORT"
+echo "  NODE_ENV=$NODE_ENV"
+echo "  NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED"
 echo ""
 
 # 尝试找到并启动Next.js server.js
@@ -62,41 +74,72 @@ fi
 
 echo ""
 echo "Server directory: $SERVER_DIR"
-echo "Directory contents:"
-ls -la "$SERVER_DIR" | head -20
 echo ""
 
-echo "Checking for static resources:"
+echo "Checking critical resources:"
+echo ""
+
+# 检查.next/static目录
 if [ -d "$SERVER_DIR/.next/static" ]; then
     echo "✓ .next/static directory exists"
-    echo "  Static subdirectories:"
-    ls "$SERVER_DIR/.next/static/" 2>/dev/null || echo "Cannot list"
+    echo "  Contents:"
+    ls "$SERVER_DIR/.next/static/" 2>/dev/null | head -5
     echo ""
-    echo "  Sample chunk files:"
-    ls "$SERVER_DIR/.next/static/chunks/" 2>/dev/null | head -5 || echo "Cannot list chunks"
+
+    # 检查chunks目录
+    if [ -d "$SERVER_DIR/.next/static/chunks" ]; then
+        CHUNK_COUNT=$(ls "$SERVER_DIR/.next/static/chunks/" 2>/dev/null | wc -l)
+        echo "  Chunks count: $CHUNK_COUNT"
+        echo "  Sample chunks:"
+        ls "$SERVER_DIR/.next/static/chunks/" 2>/dev/null | head -3
+    fi
+    echo ""
+
+    # 检查CSS文件
+    CSS_COUNT=$(find "$SERVER_DIR/.next/static" -name "*.css" -type f 2>/dev/null | wc -l)
+    JS_COUNT=$(find "$SERVER_DIR/.next/static" -name "*.js" -type f 2>/dev/null | wc -l)
+    echo "  CSS files: $CSS_COUNT"
+    echo "  JS files: $JS_COUNT"
 else
     echo "✗ .next/static directory does not exist"
     echo ""
     echo "Listing .next directory:"
     ls -la "$SERVER_DIR/.next/" 2>/dev/null || echo "No .next directory"
+    echo ""
+    echo "WARNING: Static resources may not be accessible!"
 fi
 echo ""
 
-echo "Checking for public directory:"
+# 检查public目录
 if [ -d "$SERVER_DIR/public" ]; then
     echo "✓ public directory exists"
+    PUBLIC_COUNT=$(find "$SERVER_DIR/public" -type f 2>/dev/null | wc -l)
+    echo "  Public files: $PUBLIC_COUNT"
 else
     echo "✗ public directory does not exist"
 fi
 echo ""
 
-echo "Starting server on port ${PORT:-5000}..."
-echo "========================================"
+# 检查manifest文件
+echo "Checking build manifests:"
+MANIFEST_FOUND=0
+for manifest in build-manifest.json routes-manifest.json; do
+    MANIFEST_PATH="$SERVER_DIR/.next/$manifest"
+    if [ -f "$MANIFEST_PATH" ]; then
+        echo "  ✓ $manifest"
+        MANIFEST_FOUND=$((MANIFEST_FOUND + 1))
+    fi
+done
+
+if [ $MANIFEST_FOUND -eq 0 ]; then
+    echo "  ⚠ No manifest files found - may indicate incomplete build"
+fi
 echo ""
 
-# 设置默认端口
-export PORT="${PORT:-5000}"
-export NODE_ENV="production"
+echo "========================================"
+echo "Starting Next.js server on port $PORT..."
+echo "========================================"
+echo ""
 
 # 启动server
 exec node server.js
