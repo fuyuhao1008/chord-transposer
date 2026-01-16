@@ -839,8 +839,8 @@ export default function TransposePage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-8 px-4">
       <div className="max-w-6xl mx-auto">
         {/* 标题 */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
+        <div className="text-center mb-4">
+          <div className="flex items-center justify-center gap-3 mb-2">
             <Music className="w-10 h-10 text-indigo-600" />
             <h1
               className="text-4xl font-bold text-gray-900 dark:text-white"
@@ -856,7 +856,7 @@ export default function TransposePage() {
 
         {/* 上传区域（居中显示） */}
         {pageState === 'upload' && (
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-3">
             <Card className="w-full max-w-2xl">
               <CardContent className="pt-6">
                 <div
@@ -889,7 +889,7 @@ export default function TransposePage() {
 
         {/* 定位阶段：图片居中显示 */}
         {mounted && (pageState === 'locating_first' || pageState === 'locating_last') && imageSrc && (
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-3">
             <Card className="w-full max-w-4xl">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -909,11 +909,11 @@ export default function TransposePage() {
               <div className="mb-4 bg-indigo-600 text-white px-6 py-4 rounded-lg text-center font-semibold text-lg shadow-lg animate-pulse">
                 {pageState === 'locating_first'
                   ? (isMobile
-                      ? '请点击图中【第一个】和弦标记号（可以放大图片查看）。'
-                      : '请点击图中【第一个】和弦标记号。')
+                      ? <><div>请点击图中【第一个】和弦标记</div><div className="text-sm mt-1 font-normal">（可以放大图片查看）</div></>
+                      : '请点击图中【第一个】和弦标记')
                   : (isMobile
-                      ? '现在请点击图中【最后一个】和弦标记号。长按图标可拖动微调。'
-                      : '现在请点击图中【最后一个】和弦标记号。可拖动标记进行微调。')}
+                      ? <><div>现在请点击图中【最后一个】和弦标记</div><div className="text-sm mt-1 font-normal">长按图标可拖动微调</div></>
+                      : <><div>现在请点击图中【最后一个】和弦标记</div><div className="text-sm mt-1 font-normal">可拖动标记进行微调</div></>)}
               </div>
 
               <CardContent>
@@ -1022,7 +1022,7 @@ export default function TransposePage() {
         {/* 设置和结果阶段：单栏布局 */}
         {(pageState === 'settings' || pageState === 'processing' || pageState === 'result') && (
           <div className="flex justify-center">
-            <div className="w-full max-w-2xl space-y-4">
+            <div className="w-full max-w-2xl space-y-3">
               {/* 转调设置 */}
               {pageState === 'settings' && (
                 <Card>
