@@ -994,7 +994,7 @@ export default function TransposePage() {
                         className={`w-full ${isMobile ? 'py-6 text-lg' : 'max-w-md'}`}
                       >
                         <Loader2 className={`animate-spin ${isMobile ? 'w-5 h-5 mr-3' : 'w-4 h-4 mr-2'}`} />
-                        请稍后...（大约需要10秒）
+                        请稍后...（大约需要20秒）
                       </Button>
                     ) : (
                       <Button
