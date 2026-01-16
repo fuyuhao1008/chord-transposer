@@ -42,7 +42,7 @@ if [ -d ".next/static" ]; then
     SOURCE_COUNT=$(find .next/static -type f | wc -l)
     echo "  Total static files: $SOURCE_COUNT"
     echo "  Sample chunks:"
-    ls .next/static/chunks/ | head -5 2>/dev/null || echo "  (no chunks)"
+    ls .next/static/chunks/ 2>/dev/null | head -5 || echo "  (no chunks)"
     echo ""
 else
     echo "ERROR: .next/static directory does not exist after build"
@@ -54,19 +54,21 @@ echo "Step 4: Detecting standalone directory structure..."
 STANDALONE_SERVER=""
 STANDALONE_ROOT=""
 
-# 检查各种可能的路径
+# 方法1：直接查找根目录的server.js
 if [ -f ".next/standalone/server.js" ]; then
     STANDALONE_ROOT=".next/standalone"
     STANDALONE_SERVER=".next/standalone/server.js"
-    echo "Found: .next/standalone/server.js (root level)"
+    echo "Method 1: Found .next/standalone/server.js (root level)"
 
+# 方法2：检查嵌套路径
 elif [ -f ".next/standalone/workspace/projects/server.js" ]; then
     STANDALONE_ROOT=".next/standalone/workspace/projects"
     STANDALONE_SERVER=".next/standalone/workspace/projects/server.js"
-    echo "Found: .next/standalone/workspace/projects/server.js (nested)"
+    echo "Method 2: Found .next/standalone/workspace/projects/server.js (nested)"
 
+# 方法3：使用find自动搜索
 elif [ -d ".next/standalone" ]; then
-    echo "Searching for server.js in .next/standalone..."
+    echo "Method 3: Searching for server.js in .next/standalone..."
     STANDALONE_SERVER=$(find .next/standalone -name "server.js" -type f -not -path "*/node_modules/*" 2>/dev/null | head -1)
     if [ -n "$STANDALONE_SERVER" ]; then
         STANDALONE_ROOT=$(dirname "$STANDALONE_SERVER")
@@ -77,8 +79,14 @@ fi
 if [ -z "$STANDALONE_SERVER" ]; then
     echo "ERROR: Cannot find server.js in .next/standalone directory"
     echo ""
-    echo "Listing .next/standalone directory:"
-    find .next/standalone -type f -not -path "*/node_modules/*" 2>/dev/null | head -20 || echo "Directory empty or missing"
+    echo "Debugging information:"
+    echo "  .next/standalone exists: $([ -d .next/standalone ] && echo 'yes' || echo 'no')"
+    echo ""
+    echo "  Directory listing:"
+    find .next/standalone -type f -not -path "*/node_modules/*" 2>/dev/null | head -20 || echo "  Directory empty or missing"
+    echo ""
+    echo "  All subdirectories:"
+    find .next/standalone -type d 2>/dev/null | head -20 || echo "  No directories"
     exit 1
 fi
 
@@ -91,7 +99,7 @@ echo "Step 5: Copying public directory to standalone output..."
 if [ -d "public" ]; then
     echo "Public directory exists"
     if [ -d "$STANDALONE_ROOT" ]; then
-        echo "Copying public directory to $STANDALONE_ROOT..."
+        echo "Copying public directory to $STANDALONE_ROOT/..."
         cp -rf public "$STANDALONE_ROOT/" || {
             echo "ERROR: Failed to copy public directory"
             exit 1
@@ -109,7 +117,7 @@ echo ""
 
 echo "Step 6: Copying static files to standalone output..."
 if [ -d ".next/static" ]; then
-    if [ -d "$STANDALONE_ROOT/.next" ]; then
+    if [ -d "$STANDALONE_ROOT" ]; then
         echo "Target directory: $STANDALONE_ROOT/.next/static"
 
         # 先删除旧的目标目录（如果存在），确保干净的复制
@@ -117,6 +125,9 @@ if [ -d ".next/static" ]; then
             rm -rf "$STANDALONE_ROOT/.next/static"
             echo "Removed old static directory"
         fi
+
+        # 确保目标.next目录存在
+        mkdir -p "$STANDALONE_ROOT/.next"
 
         # 复制整个.next/static目录
         cp -r .next/static "$STANDALONE_ROOT/.next/" || {
@@ -137,7 +148,7 @@ if [ -d ".next/static" ]; then
             echo "⚠ File count difference: $((DEST_COUNT - SOURCE_COUNT))"
         fi
     else
-        echo "ERROR: .next directory does not exist in standalone root: $STANDALONE_ROOT/.next"
+        echo "ERROR: Standalone root directory does not exist: $STANDALONE_ROOT"
         exit 1
     fi
 else
@@ -165,11 +176,11 @@ done
 echo ""
 
 echo "Step 8: Final structure check..."
-echo "Standalone directory tree:"
+echo "Standalone directory tree ($STANDALONE_ROOT):"
 if command -v tree >/dev/null 2>&1; then
-    tree -L 3 -d "$STANDALONE_ROOT/" 2>/dev/null || find "$STANDALONE_ROOT/" -maxdepth 3 -type d | head -20
+    tree -L 2 -d "$STANDALONE_ROOT/" 2>/dev/null || find "$STANDALONE_ROOT/" -maxdepth 2 -type d | head -20
 else
-    find "$STANDALONE_ROOT/" -maxdepth 3 -type d | head -20
+    find "$STANDALONE_ROOT/" -maxdepth 2 -type d | head -20
 fi
 echo ""
 
