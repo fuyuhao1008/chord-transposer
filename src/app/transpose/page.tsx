@@ -1128,7 +1128,7 @@ export default function TransposePage() {
                   <CardContent className="py-16 flex flex-col items-center justify-center space-y-4">
                     <Loader2 className="w-16 h-16 text-indigo-600 animate-spin" />
                     <p className="text-xl text-gray-600 dark:text-gray-400 font-semibold">
-                      请稍后...（大约需要10秒）
+                      请稍后...（大约需要20秒）
                     </p>
                   </CardContent>
                 </Card>
