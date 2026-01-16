@@ -7,4 +7,4 @@ run = "pnpm dev --port 5000"
 
 [deploy]
 build = "pnpm install && pnpm build"
-run = "cd .next/standalone && PORT=5000 node server.js"
+run = "cd .next/standalone/workspace/projects && PORT=5000 node server.js"
