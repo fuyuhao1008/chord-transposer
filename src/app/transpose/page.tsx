@@ -912,8 +912,8 @@ export default function TransposePage() {
                       ? <><div className="text-lg">请点击图中【第一个】和弦标记</div><div className="text-lg mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
                       : <div className="text-lg">请点击图中【第一个】和弦标记</div>)
                   : (isMobile
-                      ? <><div className="text-lg">现在请点击图中【最后一个】和弦标记</div><div className="text-lg mt-1 font-normal text-red-300">完成后请点击最底部的确认按钮</div></>
-                      : <><div className="text-lg">现在请点击图中【最后一个】和弦标记</div><div className="text-lg mt-1 font-normal">可拖动标记进行微调</div></>)}
+                      ? <><div className="text-lg">请点击图中【最后一个】和弦标记</div><div className="text-lg mt-1 font-normal text-red-300">完成后请点击最底部的确认按钮</div></>
+                      : <><div className="text-lg">请点击【最后一个】和弦标记</div><div className="text-lg mt-1 font-normal">可拖动标记进行微调</div></>)}
               </div>
 
               <CardContent className="px-6 pt-1 pb-6">
