@@ -2,9 +2,9 @@
 requires = ["nodejs-24"]
 
 [dev]
-build = "pnpm install"
-run = "pnpm dev --port 5000"
+build = ["pnpm", "install"]
+run = ["pnpm", "dev", "--port", "5000"]
 
 [deploy]
-build = "pnpm install && pnpm build"
-run = "cd .next/standalone/workspace/projects && PORT=5000 node server.js"
+build = ["bash", "scripts/coze-build.sh"]
+run = ["bash", "scripts/coze-start.sh"]
