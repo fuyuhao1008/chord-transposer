@@ -1363,10 +1363,11 @@ export default function TransposePage() {
                         </div>
 
                         {/* 应用按钮 */}
-                        <div className="flex items-end min-w-[100px]">
+                        <div className="flex items-center min-w-[100px]">
                           <Button
                             onClick={handleAdjustment}
                             disabled={isAdjusting}
+                            variant="outline"
                             className="w-full"
                           >
                             {isAdjusting ? (
