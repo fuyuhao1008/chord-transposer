@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     const directionStr = formData.get('direction') as string;
     const semitonesStr = formData.get('semitones') as string;
     const onlyRecognizeKey = formData.get('onlyRecognizeKey') as string;
+    const chordsDataStr = formData.get('chordsData') as string; // 前端传递的预存和弦数据
     const chordColor = (formData.get('chordColor') as string) || '#2563EB'; // 默认蓝色
     const fontSizeStr = formData.get('fontSize') as string; // 字体大小参数
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '请上传图片' }, { status: 400 });
     }
 
-    // 如果只是识别原调
+    // 如果只是识别原调（同时识别和弦，复用于转调）
     if (onlyRecognizeKey === 'true') {
       // 将图片转换为 base64
       const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
@@ -32,11 +33,13 @@ export async function POST(request: NextRequest) {
       const imgWidth = imageInfo.width || 800;
       const imgHeight = imageInfo.height || 1000;
 
-      // 只识别原调
+      // 识别原调和和弦（一次调用，返回完整结果）
       const recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
 
+      // 返回原调和完整的识别结果（前端会存储后者用于转调）
       return NextResponse.json({
         originalKey: recognitionResult.key ? chordTransposer.normalizeKey(recognitionResult.key) : null,
+        recognitionResult: recognitionResult, // 包含所有和弦数据
       });
     }
 
@@ -73,8 +76,21 @@ export async function POST(request: NextRequest) {
     const imgHeight = imageInfo.height || 1000;
     console.log('图片尺寸:', imgWidth, 'x', imgHeight);
 
-    // 调用多模态模型识别和弦（传入图片尺寸）
-    const recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
+    // 识别和弦：如果前端传递了预存数据，直接使用；否则调用大模型
+    let recognitionResult: any;
+    if (chordsDataStr) {
+      try {
+        recognitionResult = JSON.parse(chordsDataStr);
+        console.log('📦 使用预存和弦数据，跳过大模型调用');
+        console.log('预存数据:', JSON.stringify(recognitionResult, null, 2));
+      } catch (error) {
+        console.error('解析预存和弦数据失败:', error);
+        return NextResponse.json({ error: '预存数据无效' }, { status: 400 });
+      }
+    } else {
+      console.log('🤖 调用大模型识别和弦...');
+      recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
+    }
 
     if (!recognitionResult) {
       return NextResponse.json({ error: '和弦识别失败' }, { status: 500 });

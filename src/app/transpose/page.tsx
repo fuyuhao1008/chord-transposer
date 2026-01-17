@@ -228,6 +228,7 @@ export default function TransposePage() {
   const [result, setResult] = useState<any>(null);
   const [isRecognizing, setIsRecognizing] = useState<boolean>(false);
   const [isAutoRecognized, setIsAutoRecognized] = useState<boolean>(false); // 标记是否AI自动识别
+  const [chordsData, setChordsData] = useState<any>(null); // 存储大模型识别的完整结果（包含和弦和原调）
   const [chordColor, setChordColor] = useState<string>('#2563EB'); // 默认改为蓝色
   const [fontSize, setFontSize] = useState<number | null>(null); // 自定义字体大小
   const [isAdjusting, setIsAdjusting] = useState<boolean>(false); // 是否正在调整字体
@@ -513,6 +514,7 @@ export default function TransposePage() {
         setResult(null);
         setOriginalKey('');
         setIsAutoRecognized(false);
+        setChordsData(null); // 清空预存和弦数据，因为重新上传了图片
         setIsRecognizing(false);
       };
       reader.readAsDataURL(file);
@@ -527,6 +529,7 @@ export default function TransposePage() {
     setResult(null);
     setOriginalKey('');
     setIsAutoRecognized(false);
+    setChordsData(null); // 清空预存和弦数据，因为更换了图片
     setTargetKey('');
     setDirection('');
     setSemitones('');
@@ -626,7 +629,7 @@ export default function TransposePage() {
     }
   };
 
-  // 确认选择并识别原调
+  // 确认选择并识别原调（同时识别所有和弦，复用于转调）
   const handleConfirmSelection = async () => {
     if (anchorPoints.length !== 2 || isRecognizing) return;
 
@@ -637,9 +640,10 @@ export default function TransposePage() {
       const blob = await response.blob();
       const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
 
+      // 识别原调和和弦（一次调用，返回完整结果）
       const formData = new FormData();
       formData.append('image', file);
-      formData.append('onlyRecognizeKey', 'true');
+      formData.append('onlyRecognizeKey', 'true'); // 告诉后端只识别，不转调
 
       const apiResponse = await fetch('/api/transpose', {
         method: 'POST',
@@ -647,6 +651,13 @@ export default function TransposePage() {
       });
 
       const data = await apiResponse.json();
+
+      // 存储完整的识别结果（包含原调和和弦）
+      if (data.recognitionResult) {
+        setChordsData(data.recognitionResult);
+        console.log('🎵 识别完整结果（原调和和弦）已存储');
+      }
+
       if (data.originalKey) {
         setOriginalKey(data.originalKey);
         setIsAutoRecognized(true); // 标记为AI自动识别
@@ -656,7 +667,7 @@ export default function TransposePage() {
         console.log('⚠️ 未识别到原调');
       }
     } catch (error) {
-      console.error('自动识别原调失败:', error);
+      console.error('识别失败:', error);
     } finally {
       setIsRecognizing(false);
       setPageState('settings');
@@ -666,6 +677,7 @@ export default function TransposePage() {
   // 重新选择第一个和弦
   const handleRelocateFirst = () => {
     setAnchorPoints([]);
+    setChordsData(null); // 清空预存和弦数据，因为可能重新上传了图片
     setPageState('locating_first');
   };
 
@@ -740,6 +752,12 @@ export default function TransposePage() {
       formData.append('chordColor', chordColor);
       // 第一次转调不传fontSize，让后端自动计算
 
+      // 传递之前识别的和弦数据，避免重复调用大模型
+      if (chordsData) {
+        formData.append('chordsData', JSON.stringify(chordsData));
+        console.log('📦 使用预存和弦数据，跳过大模型调用');
+      }
+
       const apiResponse = await fetch('/api/transpose', {
         method: 'POST',
         body: formData,
@@ -781,6 +799,12 @@ export default function TransposePage() {
       formData.append('chordColor', chordColor);
       if (fontSize) {
         formData.append('fontSize', fontSize.toString());
+      }
+
+      // 传递之前识别的和弦数据，避免重复调用大模型
+      if (chordsData) {
+        formData.append('chordsData', JSON.stringify(chordsData));
+        console.log('📦 调整时使用预存和弦数据，跳过大模型调用');
       }
 
       const apiResponse = await fetch('/api/transpose', {
