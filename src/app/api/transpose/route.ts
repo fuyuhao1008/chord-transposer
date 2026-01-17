@@ -479,7 +479,7 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
             type: 'image_url' as const,
             image_url: {
               url: imageBase64,
-              detail: 'high' as const,
+              detail: 'low' as const,
             },
           },
         ],
