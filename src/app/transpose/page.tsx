@@ -249,6 +249,8 @@ export default function TransposePage() {
   const isLongPressedRef = useRef<boolean>(false);
   const isDraggingRef = useRef<boolean>(false);
   const hasDraggedRef = useRef<boolean>(false); // 标记本次交互是否发生了拖动
+  const hasLongPressedRef = useRef<boolean>(false); // 标记本次交互是否发生了长按（无论是否拖动）
+  const shouldPreventClickRef = useRef<boolean>(false); // 标记是否应该阻止后续点击事件
   const draggingIndexRef = useRef<number | null>(null);
   const initialTouchPosRef = useRef<{ x: number; y: number } | null>(null);
   const touchMovedTooMuchRef = useRef<boolean>(false);
@@ -365,6 +367,9 @@ export default function TransposePage() {
           draggingIndexRef.current = markerIndex;
           setDraggingIndex(markerIndex); // 更新状态，用于 handleImageClick 判断
 
+          // 标记发生了长按（无论是否拖动）
+          hasLongPressedRef.current = true;
+
           // 触觉反馈（仅移动端支持）
           if ('vibrate' in navigator && e.pointerType === 'touch') {
             navigator.vibrate([50, 30, 50]);
@@ -468,8 +473,18 @@ export default function TransposePage() {
       longPressTimerRef.current = null;
     }
 
+    // 如果发生了长按但没有拖动，标记应该阻止点击事件
+    if (hasLongPressedRef.current && !hasDraggedRef.current) {
+      shouldPreventClickRef.current = true;
+      // 延迟重置标记，防止影响后续正常的点击
+      setTimeout(() => {
+        shouldPreventClickRef.current = false;
+      }, 100);
+    }
+
     // 重置所有状态
     isLongPressedRef.current = false;
+    hasLongPressedRef.current = false;
     isDraggingRef.current = false;
     draggingIndexRef.current = null;
     setDraggingIndex(null); // 重置状态，防止 handleImageClick 误判
@@ -563,6 +578,9 @@ export default function TransposePage() {
 
   // 处理图片点击
   const handleImageClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    // 如果刚刚发生了长按但没有拖动，不处理点击（防止长按松手后误触发）
+    if (shouldPreventClickRef.current) return;
+
     // 如果正在拖拽，不处理点击
     if (draggingIndex !== null) return;
 
