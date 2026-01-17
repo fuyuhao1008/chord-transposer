@@ -654,7 +654,20 @@ export default function TransposePage() {
         body: formData,
       });
 
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        console.error('❌ AI识别失败:', errorData);
+        alert(`识别失败: ${errorData.error || '图片识别失败，请重新上传图片'}`);
+        setPageState('locating_first');
+        setAnchorPoints([]);
+        return;
+      }
+
       const data = await apiResponse.json();
+      console.log('✅ AI识别成功，收到数据:', {
+        originalKey: data.originalKey,
+        recognizedCentersCount: data.recognizedCenters?.length || 0
+      });
 
       // 缓存识别结果
       setRecognitionCache({
@@ -673,11 +686,14 @@ export default function TransposePage() {
       }
 
       console.log('💾 已缓存AI识别结果:', { key: data.originalKey, centersCount: data.recognizedCenters?.length || 0 });
+      setPageState('settings');
     } catch (error) {
-      console.error('自动识别原调失败:', error);
+      console.error('❌ 自动识别原调失败:', error);
+      alert(`识别失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      setPageState('locating_first');
+      setAnchorPoints([]);
     } finally {
       setIsRecognizing(false);
-      setPageState('settings');
     }
   };
 

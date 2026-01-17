@@ -322,18 +322,42 @@ export async function POST(request: NextRequest) {
     console.log('原调:', originalKey);
     console.log('目标调:', targetKey);
     console.log('半音数:', semitones);
+    console.log('和弦数量:', chords.length);
+
+    // 检查是否识别到和弦
+    if (chords.length === 0) {
+      console.warn('⚠️ 未识别到任何和弦，返回原图');
+      // 返回原图（不标注任何和弦）
+      const resultImageBase64 = `data:${imageFile.type};base64,${imageBuffer.toString('base64')}`;
+
+      return NextResponse.json({
+        originalKey: originalKey,
+        targetKey: targetKey,
+        semitones: semitones || 0,
+        chordColor: chordColor,
+        fontSize: fontSize,
+        chords: [],
+        resultImage: resultImageBase64,
+        recognition: recognitionResult,
+      });
+    }
 
     // 执行转调
     let transposeResult;
-    if (semitones !== 0) {
-      // 用户指定了升降音数，使用新方法
-      // 传入用户选择的目标调，确保显示的targetKey与用户选择一致
-      transposeResult = chordTransposer.transposeChordsBySemitones(chords, originalKey, semitones, true, targetKey);
-      console.log('使用升降音数转调:', semitones, '用户选择目标调:', targetKey);
-    } else {
-      // 使用目标调转调
-      transposeResult = chordTransposer.transposeChords(chords, originalKey, targetKey, true);
-      console.log('使用目标调转调:', targetKey);
+    try {
+      if (semitones !== 0) {
+        // 用户指定了升降音数，使用新方法
+        // 传入用户选择的目标调，确保显示的targetKey与用户选择一致
+        transposeResult = chordTransposer.transposeChordsBySemitones(chords, originalKey, semitones, true, targetKey);
+        console.log('使用升降音数转调:', semitones, '用户选择目标调:', targetKey);
+      } else {
+        // 使用目标调转调
+        transposeResult = chordTransposer.transposeChords(chords, originalKey, targetKey, true);
+        console.log('使用目标调转调:', targetKey);
+      }
+    } catch (error) {
+      console.error('❌ 转调过程出错:', error);
+      throw error;
     }
 
     console.log('转调结果:', transposeResult);
