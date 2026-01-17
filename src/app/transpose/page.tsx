@@ -770,8 +770,29 @@ export default function TransposePage() {
         body: formData,
       });
 
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        console.error('❌ 转调请求失败:', errorData);
+        alert(`转调失败: ${errorData.error || '未知错误'}`);
+        setPageState('settings');
+        return;
+      }
+
       const data = await apiResponse.json();
+      console.log('✅ 转调成功，收到数据:', {
+        originalKey: data.originalKey,
+        targetKey: data.targetKey,
+        chordsCount: data.chords?.length || 0
+      });
       setResult(data);
+      // 更新前端的原调和目标调状态
+      if (data.originalKey && data.originalKey !== originalKey) {
+        console.log('🔄 更新前端originalKey:', originalKey, '->', data.originalKey);
+        setOriginalKey(data.originalKey);
+      }
+      if (data.targetKey) {
+        setTargetKey(data.targetKey);
+      }
       setPageState('result');
     } catch (error) {
       console.error('转调失败:', error);
@@ -821,6 +842,13 @@ export default function TransposePage() {
 
       const data = await apiResponse.json();
       setResult(data);
+      // 更新前端的原调和目标调状态
+      if (data.originalKey && data.originalKey !== originalKey) {
+        setOriginalKey(data.originalKey);
+      }
+      if (data.targetKey) {
+        setTargetKey(data.targetKey);
+      }
     } catch (error) {
       console.error('调整失败:', error);
       alert('调整失败，请稍后重试');
@@ -851,6 +879,9 @@ export default function TransposePage() {
 
   // 格式化调名显示（去掉"大调"）
   const formatKeyLabel = (key: string) => {
+    if (!key || key === 'undefined' || key === 'null') {
+      return '未识别';
+    }
     return key + '调';
   };
 

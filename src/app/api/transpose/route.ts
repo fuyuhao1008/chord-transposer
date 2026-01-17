@@ -101,12 +101,20 @@ export async function POST(request: NextRequest) {
 
     // 确定原调（需要用于OCR修正）
     let originalKey = originalKeyInput;
-    if (!originalKey && recognitionResult.key) {
-      originalKey = chordTransposer.normalizeKey(recognitionResult.key);
+
+    // 如果前端传递的是'auto'或空值，尝试从AI识别结果获取
+    if (!originalKey || originalKey === 'auto') {
+      if (recognitionResult.key) {
+        originalKey = chordTransposer.normalizeKey(recognitionResult.key);
+      }
     }
+
+    // 如果还是没有原调，使用默认C调
     if (!originalKey) {
-      originalKey = 'C'; // 默认 C 调
+      originalKey = 'C';
     }
+
+    console.log('🎵 最终使用的原调:', originalKey);
 
     // 解析识别出的和弦（使用中心点坐标）
     const chords: Chord[] = [];
@@ -310,6 +318,11 @@ export async function POST(request: NextRequest) {
       y: c.y?.toFixed(2),
     })), null, 2));
 
+    console.log('========== 准备转调 ==========');
+    console.log('原调:', originalKey);
+    console.log('目标调:', targetKey);
+    console.log('半音数:', semitones);
+
     // 执行转调
     let transposeResult;
     if (semitones !== 0) {
@@ -324,6 +337,12 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('转调结果:', transposeResult);
+    console.log('转调结果详情:', {
+      originalKey: transposeResult.originalKey,
+      targetKey: transposeResult.targetKey,
+      semitones: transposeResult.semitones,
+      chordsCount: transposeResult.chords.length
+    });
 
     // 处理字体大小参数
     let fontSize = null;
@@ -344,9 +363,20 @@ export async function POST(request: NextRequest) {
       transposeResult.targetKey
     );
 
-    return NextResponse.json({
+    console.log('\n========== 准备返回响应 ==========');
+    console.log('返回给前端的数据:', {
       originalKey: transposeResult.originalKey,
       targetKey: transposeResult.targetKey,
+      semitones: transposeResult.semitones,
+      chordColor: chordColor,
+      fontSize: fontSize,
+      chordsCount: transposeResult.chords.length,
+      hasResultImage: !!resultImage
+    });
+
+    return NextResponse.json({
+      originalKey: transposeResult.originalKey || 'C',
+      targetKey: transposeResult.targetKey || targetKey,
       semitones: transposeResult.semitones,
       chordColor: chordColor,
       fontSize: fontSize,
@@ -521,10 +551,10 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
     return result;
   } catch (error) {
     console.error('和弦识别失败:', error);
-    // 失败时返回空结果
+    // 失败时返回空结果（字段名必须与成功时一致）
     return {
       key: null,
-      chords: [],
+      centers: [],
     };
   }
 }
