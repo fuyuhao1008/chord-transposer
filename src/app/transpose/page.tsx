@@ -305,14 +305,36 @@ export default function TransposePage() {
   useEffect(() => {
     try {
       // 确保在客户端环境中才设置mounted
+      // 使用setTimeout确保在所有浏览器中都能正确执行
       if (typeof window !== 'undefined') {
-        setMounted(true);
-        console.log('📱 mounted已设置，页面应正常显示');
+        console.log('📱 检测到window对象，开始设置mounted...');
+        console.log('📱 navigator.userAgent:', navigator.userAgent?.substring(0, 100));
+        console.log('📱 window.innerWidth:', window.innerWidth);
+        console.log('📱 document.readyState:', document.readyState);
+
+        // 使用requestAnimationFrame确保在下一帧设置，兼容性更好
+        const setMountedSafe = () => {
+          try {
+            setMounted(true);
+            console.log('✅ mounted已设置，页面应正常显示');
+          } catch (error) {
+            console.error('❌ 设置mounted失败:', error);
+            // 失败后重试
+            setTimeout(() => setMounted(true), 100);
+          }
+        };
+
+        // 根据页面加载状态选择最佳时机
+        if (document.readyState === 'loading') {
+          window.addEventListener('DOMContentLoaded', setMountedSafe);
+        } else {
+          setMountedSafe();
+        }
       }
     } catch (error) {
       console.error('设置mounted状态失败:', error);
       // 即使出错也设置mounted，避免页面一直卡在加载状态
-      setMounted(true);
+      setTimeout(() => setMounted(true), 100);
     }
   }, []);
 
