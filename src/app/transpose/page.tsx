@@ -248,7 +248,7 @@ export default function TransposePage() {
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressedRef = useRef<boolean>(false);
   const isDraggingRef = useRef<boolean>(false);
-  const justFinishedDraggingRef = useRef<boolean>(false); // 标记是否刚完成拖动（用于防止onClick误触发）
+  const hasDraggedRef = useRef<boolean>(false); // 标记本次交互是否发生了拖动
   const draggingIndexRef = useRef<number | null>(null);
   const initialTouchPosRef = useRef<{ x: number; y: number } | null>(null);
   const touchMovedTooMuchRef = useRef<boolean>(false);
@@ -337,6 +337,9 @@ export default function TransposePage() {
       // 指针在图标上，立即阻止默认行为（避免浏览器长按菜单和滚动）
       e.preventDefault();
       e.stopPropagation();
+
+      // 重置拖动标志
+      hasDraggedRef.current = false;
 
       // 计算鼠标相对于图标中心的偏移量（用于拖动时保持相对位置）
       const point = anchorPointsRef.current[markerIndex];
@@ -450,6 +453,9 @@ export default function TransposePage() {
       }
       return newPoints;
     });
+
+    // 标记发生了拖动
+    hasDraggedRef.current = true;
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -472,11 +478,12 @@ export default function TransposePage() {
     dragOffsetRef.current = null;
     setLongPressedIndex(null);
 
-    // 标记刚完成拖动，防止 onClick 误触发
-    justFinishedDraggingRef.current = true;
-    setTimeout(() => {
-      justFinishedDraggingRef.current = false;
-    }, 100); // 100ms 后重置
+    // 延迟重置 hasDraggedRef，防止 onClick 在 100ms 后误触发
+    if (hasDraggedRef.current) {
+      setTimeout(() => {
+        hasDraggedRef.current = false;
+      }, 100);
+    }
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -559,8 +566,8 @@ export default function TransposePage() {
     // 如果正在拖拽，不处理点击
     if (draggingIndex !== null) return;
 
-    // 如果刚完成拖动（防止事件时序问题），不处理点击
-    if (justFinishedDraggingRef.current) return;
+    // 如果刚刚发生了拖动，不处理点击（防止在拖动结束时误触发）
+    if (hasDraggedRef.current) return;
 
     // 如果已经有2个和弦，禁止点击添加新和弦
     if (anchorPoints.length >= 2) {
