@@ -64,8 +64,8 @@ export default function RootLayout({
       <body className="antialiased">
         <ErrorBoundary>
           {children}
-          <div className="fixed bottom-4 right-6 text-xs z-50" style={{ fontFamily: '"Noto Serif SC", "Georgia", serif' }}>
-            I <span className="text-red-300 text-[10px]">❤</span> <span className="text-gray-500">普宣</span>
+          <div className="fixed bottom-4 right-6 text-xs text-gray-500 z-50" style={{ fontFamily: '"Noto Serif SC", "Georgia", serif' }}>
+            I <span className="text-red-300 text-[10px]">❤</span> 普宣
           </div>
         </ErrorBoundary>
       </body>
