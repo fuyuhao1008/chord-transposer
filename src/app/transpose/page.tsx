@@ -232,6 +232,7 @@ export default function TransposePage() {
   const [chordColor, setChordColor] = useState<string>('#2563EB'); // 默认改为蓝色
   const [fontSize, setFontSize] = useState<number | null>(null); // 自定义字体大小
   const [isAdjusting, setIsAdjusting] = useState<boolean>(false); // 是否正在调整字体
+  const [isRelocating, setIsRelocating] = useState<boolean>(false); // 是否正在重新定位
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
@@ -822,6 +823,56 @@ export default function TransposePage() {
     }
   };
 
+  // 重新定位：修正和弦位置偏离（强制重新调用大模型）
+  const handleRelocate = async () => {
+    if (!imageSrc || !targetKey || !direction || semitones === '') return;
+
+    setIsRelocating(true);
+
+    try {
+      const response = await fetch(imageSrc);
+      const blob = await response.blob();
+      const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
+
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('targetKey', targetKey);
+      if (originalKey) {
+        formData.append('originalKey', originalKey);
+      }
+      formData.append('direction', direction);
+      formData.append('semitones', semitones.toString());
+      if (anchorPoints.length === 2) {
+        formData.append('anchorFirst', JSON.stringify(anchorPoints[0]));
+        formData.append('anchorLast', JSON.stringify(anchorPoints[1]));
+      }
+      formData.append('chordColor', chordColor);
+      if (fontSize) {
+        formData.append('fontSize', fontSize.toString());
+      }
+
+      // 调用 /api/relocate 接口，强制重新识别和弦位置
+      const apiResponse = await fetch('/api/relocate', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await apiResponse.json();
+      setResult(data);
+
+      // 更新 chordsData，存储新的识别结果
+      if (data.recognitionResult) {
+        setChordsData(data.recognitionResult);
+        console.log('📦 重新定位完成，更新和弦数据');
+      }
+    } catch (error) {
+      console.error('重新定位失败:', error);
+      alert('重新定位失败，请稍后重试');
+    } finally {
+      setIsRelocating(false);
+    }
+  };
+
   // 下载结果图片
   const handleDownload = () => {
     if (!result?.resultImage) return;
@@ -1286,24 +1337,43 @@ export default function TransposePage() {
                                 生成中
                               </>
                             ) : (
-                              '重新生成图片'
+                              '调整字号与颜色'
                             )}
                           </Button>
                         </div>
                       </div>
 
-                      {/* 红色提示文字 */}
-                      <div className="text-center text-sm text-red-600 dark:text-red-400 py-2">
-                        若和弦记号明显偏离原位，请点击"重新生成图片"
+                      {/* 橘色提示文字 */}
+                      <div className="text-center text-sm text-orange-500 dark:text-orange-400 py-2">
+                        若和弦标注完全偏离原位，请点击"重新定位"
+                      </div>
+
+                      {/* 重新定位按钮 */}
+                      <div className="flex justify-center mb-4">
+                        <Button
+                          onClick={handleRelocate}
+                          disabled={isRelocating}
+                          variant="outline"
+                          className="min-w-[140px]"
+                        >
+                          {isRelocating ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              定位中...
+                            </>
+                          ) : (
+                            '重新定位'
+                          )}
+                        </Button>
                       </div>
 
                       {/* 结果图片 */}
-                      {isAdjusting ? (
+                      {(isAdjusting || isRelocating) ? (
                         <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
                           <div className="text-center space-y-3">
                             <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mx-auto" />
                             <p className="text-lg text-gray-600 dark:text-gray-400 font-semibold">
-                              字体调整中...
+                              {isAdjusting ? '字体调整中...' : '重新定位中...'}
                             </p>
                           </div>
                         </div>
