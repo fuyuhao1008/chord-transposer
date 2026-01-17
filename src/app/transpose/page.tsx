@@ -1301,13 +1301,13 @@ export default function TransposePage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {/* 字体调整和颜色选择 */}
-                      <div className="flex flex-col sm:flex-row gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex flex-row flex-wrap gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                         {/* 字体调整 */}
-                        <div className="flex-1">
+                        <div className="flex-none min-w-[140px] max-w-[180px]">
                           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                             字体大小
                           </label>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             <Button
                               size="sm"
                               variant="outline"
@@ -1319,8 +1319,8 @@ export default function TransposePage() {
                             >
                               <span className="text-lg font-bold">-</span>
                             </Button>
-                            <div className="h-9 px-3 bg-white dark:bg-gray-700 rounded border flex items-center justify-center min-w-[60px]">
-                              <span className="font-semibold text-base">
+                            <div className="h-9 px-2 bg-white dark:bg-gray-700 rounded border flex items-center justify-center flex-1 min-w-[45px]">
+                              <span className="font-semibold text-sm">
                                 {fontSize ? `${fontSize}px` : '自动'}
                               </span>
                             </div>
@@ -1339,7 +1339,7 @@ export default function TransposePage() {
                         </div>
 
                         {/* 颜色选择 */}
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-[100px]">
                           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                             标记颜色
                           </label>
@@ -1363,11 +1363,11 @@ export default function TransposePage() {
                         </div>
 
                         {/* 应用按钮 */}
-                        <div className="flex items-end">
+                        <div className="flex items-end min-w-[100px]">
                           <Button
                             onClick={handleAdjustment}
                             disabled={isAdjusting}
-                            className="w-full sm:w-auto min-w-[120px]"
+                            className="w-full"
                           >
                             {isAdjusting ? (
                               <>
