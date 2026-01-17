@@ -1410,8 +1410,8 @@ export default function TransposePage() {
                       ) : null}
 
                       {/* 提示文字和重新定位按钮（在图片下方） */}
-                      <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center gap-2 pt-2">
-                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                      <div className="flex flex-row justify-between items-start gap-2 pt-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">
                           {isMobile ? (
                             <>
                               <div>若和弦标注完全偏离原位，</div>
@@ -1425,7 +1425,7 @@ export default function TransposePage() {
                           onClick={handleRelocate}
                           disabled={isRelocating}
                           variant="outline"
-                          className="min-w-[100px] md:ml-4"
+                          className="min-w-[100px] shrink-0"
                         >
                           {isRelocating ? (
                             <>
