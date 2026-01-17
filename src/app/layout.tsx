@@ -62,10 +62,18 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="antialiased">
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            .footer-heart {
+              color: #fca5a5 !important;
+              font-size: 10px !important;
+            }
+          `
+        }} />
         <ErrorBoundary>
           {children}
           <div className="fixed bottom-4 right-6 text-xs text-gray-500 z-50" style={{ fontFamily: '"Noto Serif SC", "Georgia", serif' }}>
-            I <span style={{ color: '#fca5a5', fontSize: '10px' }}>❤</span> 普宣
+            I <span className="footer-heart">❤</span> 普宣
           </div>
         </ErrorBoundary>
       </body>
