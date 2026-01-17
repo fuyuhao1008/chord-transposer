@@ -248,6 +248,7 @@ export default function TransposePage() {
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressedRef = useRef<boolean>(false);
   const isDraggingRef = useRef<boolean>(false);
+  const justFinishedDraggingRef = useRef<boolean>(false); // 标记是否刚完成拖动（用于防止onClick误触发）
   const draggingIndexRef = useRef<number | null>(null);
   const initialTouchPosRef = useRef<{ x: number; y: number } | null>(null);
   const touchMovedTooMuchRef = useRef<boolean>(false);
@@ -470,6 +471,12 @@ export default function TransposePage() {
     touchMovedTooMuchRef.current = false;
     dragOffsetRef.current = null;
     setLongPressedIndex(null);
+
+    // 标记刚完成拖动，防止 onClick 误触发
+    justFinishedDraggingRef.current = true;
+    setTimeout(() => {
+      justFinishedDraggingRef.current = false;
+    }, 100); // 100ms 后重置
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -551,6 +558,9 @@ export default function TransposePage() {
   const handleImageClick = (event: React.MouseEvent<HTMLDivElement>) => {
     // 如果正在拖拽，不处理点击
     if (draggingIndex !== null) return;
+
+    // 如果刚完成拖动（防止事件时序问题），不处理点击
+    if (justFinishedDraggingRef.current) return;
 
     // 如果已经有2个和弦，禁止点击添加新和弦
     if (anchorPoints.length >= 2) {
@@ -995,7 +1005,7 @@ export default function TransposePage() {
                       : <div>请点击【第一个】和弦标记</div>)
                   : (isMobile
                       ? <><div>请点击【最后一个】和弦标记</div><div className="mt-1 font-normal text-red-300">完成后请点击最底部的确认按钮</div></>
-                      : <><div>请点击【最后一个】和弦标记</div><div className="mt-1 font-normal">可拖动标记进行微调</div></>)}
+                      : <div>请点击【最后一个】和弦标记</div>)}
               </div>
 
               <CardContent className="px-6 pt-1 pb-6">
