@@ -16,12 +16,13 @@ export async function POST(request: NextRequest) {
     const onlyRecognizeKey = formData.get('onlyRecognizeKey') as string;
     const chordColor = (formData.get('chordColor') as string) || '#2563EB'; // 默认蓝色
     const fontSizeStr = formData.get('fontSize') as string; // 字体大小参数
+    const cachedCentersStr = formData.get('cachedCenters') as string; // 缓存的识别结果（可选）
 
     if (!imageFile) {
       return NextResponse.json({ error: '请上传图片' }, { status: 400 });
     }
 
-    // 如果只是识别原调
+    // 如果只是识别原调（同时返回所有和弦用于缓存）
     if (onlyRecognizeKey === 'true') {
       // 将图片转换为 base64
       const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
@@ -32,11 +33,12 @@ export async function POST(request: NextRequest) {
       const imgWidth = imageInfo.width || 800;
       const imgHeight = imageInfo.height || 1000;
 
-      // 只识别原调
+      // 识别原调和所有和弦
       const recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
 
       return NextResponse.json({
         originalKey: recognitionResult.key ? chordTransposer.normalizeKey(recognitionResult.key) : null,
+        recognizedCenters: recognitionResult.centers || [], // 返回识别的和弦中心点
       });
     }
 
@@ -73,8 +75,25 @@ export async function POST(request: NextRequest) {
     const imgHeight = imageInfo.height || 1000;
     console.log('图片尺寸:', imgWidth, 'x', imgHeight);
 
-    // 调用多模态模型识别和弦（传入图片尺寸）
-    const recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
+    // 检查是否有缓存的识别结果
+    let recognitionResult: any;
+    let rawCenters: any[];
+
+    if (cachedCentersStr) {
+      // 使用缓存的识别结果
+      const cachedCenters = JSON.parse(cachedCentersStr);
+      recognitionResult = {
+        key: null, // 缓存中没有调号信息
+        centers: cachedCenters,
+      };
+      rawCenters = cachedCenters;
+      console.log('✅ 使用缓存的识别结果，跳过AI调用');
+    } else {
+      // 调用多模态模型识别和弦（传入图片尺寸）
+      recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
+      rawCenters = recognitionResult.centers || [];
+      console.log('🤖 调用AI识别和弦');
+    }
 
     if (!recognitionResult) {
       return NextResponse.json({ error: '和弦识别失败' }, { status: 500 });
@@ -91,7 +110,6 @@ export async function POST(request: NextRequest) {
 
     // 解析识别出的和弦（使用中心点坐标）
     const chords: Chord[] = [];
-    const rawCenters = recognitionResult.centers || [];
 
     console.log('========== AI识别原始结果 ==========');
     console.log('原始数据:', JSON.stringify(recognitionResult, null, 2));

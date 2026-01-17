@@ -14,6 +14,13 @@ interface Point {
 
 type PageState = 'upload' | 'locating_first' | 'locating_last' | 'settings' | 'processing' | 'result';
 
+// 缓存AI识别结果（避免重复调用）
+interface RecognitionCache {
+  key: string | null;
+  centers: Array<{ text: string; cx: number; cy: number }>;
+  timestamp: number;
+}
+
 // 图标组件：精确的圆圈和文字框设计
 function CalibrationMarker({
   index,
@@ -235,6 +242,7 @@ export default function TransposePage() {
   const [mounted, setMounted] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [longPressedIndex, setLongPressedIndex] = useState<number | null>(null);
+  const [recognitionCache, setRecognitionCache] = useState<RecognitionCache | null>(null); // 缓存AI识别结果
 
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -531,6 +539,7 @@ export default function TransposePage() {
     setDirection('');
     setSemitones('');
     setIsRecognizing(false);
+    setRecognitionCache(null); // 清除缓存
     setTimeout(() => {
       fileInputRef.current?.click();
     }, 100);
@@ -626,7 +635,7 @@ export default function TransposePage() {
     }
   };
 
-  // 确认选择并识别原调
+  // 确认选择并识别原调和所有和弦（缓存结果）
   const handleConfirmSelection = async () => {
     if (anchorPoints.length !== 2 || isRecognizing) return;
 
@@ -639,7 +648,6 @@ export default function TransposePage() {
 
       const formData = new FormData();
       formData.append('image', file);
-      formData.append('onlyRecognizeKey', 'true');
 
       const apiResponse = await fetch('/api/transpose', {
         method: 'POST',
@@ -647,6 +655,14 @@ export default function TransposePage() {
       });
 
       const data = await apiResponse.json();
+
+      // 缓存识别结果
+      setRecognitionCache({
+        key: data.originalKey || null,
+        centers: data.recognizedCenters || [],
+        timestamp: Date.now(),
+      });
+
       if (data.originalKey) {
         setOriginalKey(data.originalKey);
         setIsAutoRecognized(true); // 标记为AI自动识别
@@ -655,6 +671,8 @@ export default function TransposePage() {
         setIsAutoRecognized(false); // 未识别到，标记为非自动识别
         console.log('⚠️ 未识别到原调');
       }
+
+      console.log('💾 已缓存AI识别结果:', { key: data.originalKey, centersCount: data.recognizedCenters?.length || 0 });
     } catch (error) {
       console.error('自动识别原调失败:', error);
     } finally {
@@ -738,6 +756,13 @@ export default function TransposePage() {
         formData.append('anchorLast', JSON.stringify(anchorPoints[1]));
       }
       formData.append('chordColor', chordColor);
+
+      // 传入缓存的识别结果（如果有）
+      if (recognitionCache && recognitionCache.centers) {
+        formData.append('cachedCenters', JSON.stringify(recognitionCache.centers));
+        console.log('📤 传入缓存的识别结果:', recognitionCache.centers.length, '个和弦');
+      }
+
       // 第一次转调不传fontSize，让后端自动计算
 
       const apiResponse = await fetch('/api/transpose', {
@@ -781,6 +806,12 @@ export default function TransposePage() {
       formData.append('chordColor', chordColor);
       if (fontSize) {
         formData.append('fontSize', fontSize.toString());
+      }
+
+      // 传入缓存的识别结果（如果有）
+      if (recognitionCache && recognitionCache.centers) {
+        formData.append('cachedCenters', JSON.stringify(recognitionCache.centers));
+        console.log('📤 调整时传入缓存的识别结果:', recognitionCache.centers.length, '个和弦');
       }
 
       const apiResponse = await fetch('/api/transpose', {
