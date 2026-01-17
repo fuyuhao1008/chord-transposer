@@ -65,7 +65,7 @@ export default function RootLayout({
         <ErrorBoundary>
           {children}
           <div className="fixed bottom-4 right-6 text-xs text-gray-500 z-50" style={{ fontFamily: '"Noto Serif SC", "Georgia", serif' }}>
-            I <span className="text-red-300 text-[10px]">❤</span> 普宣
+            I <span style={{ color: '#fca5a5', fontSize: '10px' }}>❤</span> 普宣
           </div>
         </ErrorBoundary>
       </body>
