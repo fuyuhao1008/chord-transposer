@@ -1343,18 +1343,16 @@ export default function TransposePage() {
                         </div>
                       </div>
 
-                      {/* 橘色提示文字 */}
-                      <div className="text-center text-sm text-orange-500 dark:text-orange-400 py-2">
-                        若和弦标注完全偏离原位，请点击"重新定位"
-                      </div>
-
-                      {/* 重新定位按钮 */}
-                      <div className="flex justify-center mb-4">
+                      {/* 橘色提示文字和重新定位按钮（同一行） */}
+                      <div className="flex justify-between items-center py-2 mb-4">
+                        <span className="text-sm text-orange-500 dark:text-orange-400">
+                          若和弦标注完全偏离原位，请点击"重新定位"
+                        </span>
                         <Button
                           onClick={handleRelocate}
                           disabled={isRelocating}
                           variant="outline"
-                          className="min-w-[140px]"
+                          className="min-w-[100px] ml-4"
                         >
                           {isRelocating ? (
                             <>
