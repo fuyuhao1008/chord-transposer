@@ -1301,74 +1301,77 @@ export default function TransposePage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {/* 字体调整和颜色选择 */}
-                      <div className="flex flex-row flex-wrap gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        {/* 字体调整 */}
-                        <div className="flex-none min-w-[140px] max-w-[180px]">
-                          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                            字体大小
-                          </label>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const newSize = (fontSize || 20) - 2;
-                                setFontSize(newSize > 10 ? newSize : 10);
-                              }}
-                              disabled={isAdjusting || (fontSize !== null && fontSize <= 10)}
-                            >
-                              <span className="text-lg font-bold">-</span>
-                            </Button>
-                            <div className="h-9 px-2 bg-white dark:bg-gray-700 rounded border flex items-center justify-center flex-1 min-w-[45px]">
-                              <span className="font-semibold text-sm">
-                                {fontSize ? `${fontSize}px` : '自动'}
-                              </span>
+                      <div className="flex flex-col gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        {/* 第一行：字体大小和颜色选择 */}
+                        <div className="flex flex-row flex-wrap gap-3">
+                          {/* 字体调整 */}
+                          <div className="flex-none min-w-[140px] max-w-[180px]">
+                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                              字体大小
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const newSize = (fontSize || 20) - 2;
+                                  setFontSize(newSize > 10 ? newSize : 10);
+                                }}
+                                disabled={isAdjusting || (fontSize !== null && fontSize <= 10)}
+                              >
+                                <span className="text-lg font-bold">-</span>
+                              </Button>
+                              <div className="h-9 px-2 bg-white dark:bg-gray-700 rounded border flex items-center justify-center flex-1 min-w-[45px]">
+                                <span className="font-semibold text-sm">
+                                  {fontSize ? `${fontSize}px` : '自动'}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const newSize = (fontSize || 20) + 2;
+                                  setFontSize(newSize < 60 ? newSize : 60);
+                                }}
+                                disabled={isAdjusting || (fontSize !== null && fontSize >= 60)}
+                              >
+                                <span className="text-lg font-bold">+</span>
+                              </Button>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const newSize = (fontSize || 20) + 2;
-                                setFontSize(newSize < 60 ? newSize : 60);
-                              }}
-                              disabled={isAdjusting || (fontSize !== null && fontSize >= 60)}
-                            >
-                              <span className="text-lg font-bold">+</span>
-                            </Button>
+                          </div>
+
+                          {/* 颜色选择 */}
+                          <div className="flex-1 min-w-[100px]">
+                            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                              标记颜色
+                            </label>
+                            <Select value={chordColor} onValueChange={setChordColor} disabled={isAdjusting}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="选择颜色" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {COLOR_OPTIONS.map((color) => (
+                                  <SelectItem key={color.value} value={color.value}>
+                                    <div className="flex items-center">
+                                      <div
+                                        className="w-4 h-4 rounded border border-gray-300"
+                                        style={{ backgroundColor: color.value }}
+                                      />
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
 
-                        {/* 颜色选择 */}
-                        <div className="flex-1 min-w-[100px]">
-                          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                            标记颜色
-                          </label>
-                          <Select value={chordColor} onValueChange={setChordColor} disabled={isAdjusting}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="选择颜色" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {COLOR_OPTIONS.map((color) => (
-                                <SelectItem key={color.value} value={color.value}>
-                                  <div className="flex items-center">
-                                    <div
-                                      className="w-4 h-4 rounded border border-gray-300"
-                                      style={{ backgroundColor: color.value }}
-                                    />
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* 应用按钮 */}
-                        <div className="flex items-center min-w-[100px]">
+                        {/* 第二行：应用按钮居中 */}
+                        <div className="flex justify-center">
                           <Button
                             onClick={handleAdjustment}
                             disabled={isAdjusting}
                             variant="outline"
-                            className="w-full"
+                            className="min-w-[120px]"
                           >
                             {isAdjusting ? (
                               <>
