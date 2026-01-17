@@ -16,13 +16,12 @@ export async function POST(request: NextRequest) {
     const onlyRecognizeKey = formData.get('onlyRecognizeKey') as string;
     const chordColor = (formData.get('chordColor') as string) || '#2563EB'; // 默认蓝色
     const fontSizeStr = formData.get('fontSize') as string; // 字体大小参数
-    const cachedCentersStr = formData.get('cachedCenters') as string; // 缓存的识别结果（可选）
 
     if (!imageFile) {
       return NextResponse.json({ error: '请上传图片' }, { status: 400 });
     }
 
-    // 如果只是识别原调（同时返回所有和弦用于缓存）
+    // 如果只是识别原调
     if (onlyRecognizeKey === 'true') {
       // 将图片转换为 base64
       const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
@@ -33,12 +32,11 @@ export async function POST(request: NextRequest) {
       const imgWidth = imageInfo.width || 800;
       const imgHeight = imageInfo.height || 1000;
 
-      // 识别原调和所有和弦
+      // 只识别原调
       const recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
 
       return NextResponse.json({
         originalKey: recognitionResult.key ? chordTransposer.normalizeKey(recognitionResult.key) : null,
-        recognizedCenters: recognitionResult.centers || [], // 返回识别的和弦中心点
       });
     }
 
@@ -75,25 +73,8 @@ export async function POST(request: NextRequest) {
     const imgHeight = imageInfo.height || 1000;
     console.log('图片尺寸:', imgWidth, 'x', imgHeight);
 
-    // 检查是否有缓存的识别结果
-    let recognitionResult: any;
-    let rawCenters: any[];
-
-    if (cachedCentersStr) {
-      // 使用缓存的识别结果
-      const cachedCenters = JSON.parse(cachedCentersStr);
-      recognitionResult = {
-        key: null, // 缓存中没有调号信息
-        centers: cachedCenters,
-      };
-      rawCenters = cachedCenters;
-      console.log('✅ 使用缓存的识别结果，跳过AI调用');
-    } else {
-      // 调用多模态模型识别和弦（传入图片尺寸）
-      recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
-      rawCenters = recognitionResult.centers || [];
-      console.log('🤖 调用AI识别和弦');
-    }
+    // 调用多模态模型识别和弦（传入图片尺寸）
+    const recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
 
     if (!recognitionResult) {
       return NextResponse.json({ error: '和弦识别失败' }, { status: 500 });
@@ -101,23 +82,16 @@ export async function POST(request: NextRequest) {
 
     // 确定原调（需要用于OCR修正）
     let originalKey = originalKeyInput;
-
-    // 如果前端传递的是'auto'或空值，尝试从AI识别结果获取
-    if (!originalKey || originalKey === 'auto') {
-      if (recognitionResult.key) {
-        originalKey = chordTransposer.normalizeKey(recognitionResult.key);
-      }
+    if (!originalKey && recognitionResult.key) {
+      originalKey = chordTransposer.normalizeKey(recognitionResult.key);
     }
-
-    // 如果还是没有原调，使用默认C调
     if (!originalKey) {
-      originalKey = 'C';
+      originalKey = 'C'; // 默认 C 调
     }
-
-    console.log('🎵 最终使用的原调:', originalKey);
 
     // 解析识别出的和弦（使用中心点坐标）
     const chords: Chord[] = [];
+    const rawCenters = recognitionResult.centers || [];
 
     console.log('========== AI识别原始结果 ==========');
     console.log('原始数据:', JSON.stringify(recognitionResult, null, 2));
@@ -318,55 +292,20 @@ export async function POST(request: NextRequest) {
       y: c.y?.toFixed(2),
     })), null, 2));
 
-    console.log('========== 准备转调 ==========');
-    console.log('原调:', originalKey);
-    console.log('目标调:', targetKey);
-    console.log('半音数:', semitones);
-    console.log('和弦数量:', chords.length);
-
-    // 检查是否识别到和弦
-    if (chords.length === 0) {
-      console.warn('⚠️ 未识别到任何和弦，返回原图');
-      // 返回原图（不标注任何和弦）
-      const resultImageBase64 = `data:${imageFile.type};base64,${imageBuffer.toString('base64')}`;
-
-      return NextResponse.json({
-        originalKey: originalKey,
-        targetKey: targetKey,
-        semitones: semitones || 0,
-        chordColor: chordColor,
-        fontSize: fontSize,
-        chords: [],
-        resultImage: resultImageBase64,
-        recognition: recognitionResult,
-      });
-    }
-
     // 执行转调
     let transposeResult;
-    try {
-      if (semitones !== 0) {
-        // 用户指定了升降音数，使用新方法
-        // 传入用户选择的目标调，确保显示的targetKey与用户选择一致
-        transposeResult = chordTransposer.transposeChordsBySemitones(chords, originalKey, semitones, true, targetKey);
-        console.log('使用升降音数转调:', semitones, '用户选择目标调:', targetKey);
-      } else {
-        // 使用目标调转调
-        transposeResult = chordTransposer.transposeChords(chords, originalKey, targetKey, true);
-        console.log('使用目标调转调:', targetKey);
-      }
-    } catch (error) {
-      console.error('❌ 转调过程出错:', error);
-      throw error;
+    if (semitones !== 0) {
+      // 用户指定了升降音数，使用新方法
+      // 传入用户选择的目标调，确保显示的targetKey与用户选择一致
+      transposeResult = chordTransposer.transposeChordsBySemitones(chords, originalKey, semitones, true, targetKey);
+      console.log('使用升降音数转调:', semitones, '用户选择目标调:', targetKey);
+    } else {
+      // 使用目标调转调
+      transposeResult = chordTransposer.transposeChords(chords, originalKey, targetKey, true);
+      console.log('使用目标调转调:', targetKey);
     }
 
     console.log('转调结果:', transposeResult);
-    console.log('转调结果详情:', {
-      originalKey: transposeResult.originalKey,
-      targetKey: transposeResult.targetKey,
-      semitones: transposeResult.semitones,
-      chordsCount: transposeResult.chords.length
-    });
 
     // 处理字体大小参数
     let fontSize = null;
@@ -387,20 +326,9 @@ export async function POST(request: NextRequest) {
       transposeResult.targetKey
     );
 
-    console.log('\n========== 准备返回响应 ==========');
-    console.log('返回给前端的数据:', {
+    return NextResponse.json({
       originalKey: transposeResult.originalKey,
       targetKey: transposeResult.targetKey,
-      semitones: transposeResult.semitones,
-      chordColor: chordColor,
-      fontSize: fontSize,
-      chordsCount: transposeResult.chords.length,
-      hasResultImage: !!resultImage
-    });
-
-    return NextResponse.json({
-      originalKey: transposeResult.originalKey || 'C',
-      targetKey: transposeResult.targetKey || targetKey,
       semitones: transposeResult.semitones,
       chordColor: chordColor,
       fontSize: fontSize,
@@ -512,6 +440,13 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
 - center_x 必须真实反映和弦在图片中的水平位置
 
 ==============================
+【分布校验规则（必须遵守）】
+
+- 如果图片下半部分（y > ${Math.floor(imgHeight * 0.5)}）存在和弦，必须返回对应坐标
+- 不允许所有和弦的 y 值集中在图片上半部分
+- 图片底部区域（y > ${Math.floor(imgHeight * 0.75)}）出现的和弦，必须被识别并返回
+
+==============================
 【返回格式（只允许 JSON）】
 
 {
@@ -575,10 +510,10 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
     return result;
   } catch (error) {
     console.error('和弦识别失败:', error);
-    // 失败时返回空结果（字段名必须与成功时一致）
+    // 失败时返回空结果
     return {
       key: null,
-      centers: [],
+      chords: [],
     };
   }
 }
