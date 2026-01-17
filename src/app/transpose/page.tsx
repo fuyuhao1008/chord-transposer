@@ -359,6 +359,7 @@ export default function TransposePage() {
           isLongPressedRef.current = true;
           isDraggingRef.current = true;
           draggingIndexRef.current = markerIndex;
+          setDraggingIndex(markerIndex); // 更新状态，用于 handleImageClick 判断
 
           // 触觉反馈（仅移动端支持）
           if ('vibrate' in navigator && e.pointerType === 'touch') {
@@ -464,6 +465,7 @@ export default function TransposePage() {
     isLongPressedRef.current = false;
     isDraggingRef.current = false;
     draggingIndexRef.current = null;
+    setDraggingIndex(null); // 重置状态，防止 handleImageClick 误判
     initialTouchPosRef.current = null;
     touchMovedTooMuchRef.current = false;
     dragOffsetRef.current = null;
@@ -484,6 +486,7 @@ export default function TransposePage() {
     isLongPressedRef.current = false;
     isDraggingRef.current = false;
     draggingIndexRef.current = null;
+    setDraggingIndex(null); // 重置状态
     initialTouchPosRef.current = null;
     touchMovedTooMuchRef.current = false;
     dragOffsetRef.current = null;
