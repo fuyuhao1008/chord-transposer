@@ -440,13 +440,6 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
 - center_x 必须真实反映和弦在图片中的水平位置
 
 ==============================
-【分布校验规则（必须遵守）】
-
-- 如果图片下半部分（y > ${Math.floor(imgHeight * 0.5)}）存在和弦，必须返回对应坐标
-- 不允许所有和弦的 y 值集中在图片上半部分
-- 图片底部区域（y > ${Math.floor(imgHeight * 0.75)}）出现的和弦，必须被识别并返回
-
-==============================
 【返回格式（只允许 JSON）】
 
 {
