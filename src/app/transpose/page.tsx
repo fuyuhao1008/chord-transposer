@@ -1283,9 +1283,6 @@ export default function TransposePage() {
                             className="w-4 h-4 rounded border border-gray-300"
                             style={{ backgroundColor: result.chordColor || '#2563EB' }}
                           />
-                          <span className="font-semibold text-lg">
-                            {COLOR_OPTIONS.find(c => c.value === (result.chordColor || '#2563EB'))?.label || '蓝色'}
-                          </span>
                         </div>
                       </div>
                     </CardContent>
@@ -1353,12 +1350,11 @@ export default function TransposePage() {
                             <SelectContent>
                               {COLOR_OPTIONS.map((color) => (
                                 <SelectItem key={color.value} value={color.value}>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center">
                                     <div
                                       className="w-4 h-4 rounded border border-gray-300"
                                       style={{ backgroundColor: color.value }}
                                     />
-                                    <span>{color.label}</span>
                                   </div>
                                 </SelectItem>
                               ))}
