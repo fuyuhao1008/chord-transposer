@@ -1304,7 +1304,7 @@ export default function TransposePage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {/* 字体调整和颜色选择 */}
-                      <div className="flex flex-col sm:flex-row gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex flex-col sm:flex-row gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                         {/* 字体调整 */}
                         <div className="flex-1">
                           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
@@ -1322,8 +1322,8 @@ export default function TransposePage() {
                             >
                               <span className="text-lg font-bold">-</span>
                             </Button>
-                            <div className="flex-1 h-9 px-4 bg-white dark:bg-gray-700 rounded border flex items-center justify-center">
-                              <span className="font-semibold text-lg">
+                            <div className="h-9 px-3 bg-white dark:bg-gray-700 rounded border flex items-center justify-center min-w-[60px]">
+                              <span className="font-semibold text-base">
                                 {fontSize ? `${fontSize}px` : '自动'}
                               </span>
                             </div>
@@ -1385,28 +1385,6 @@ export default function TransposePage() {
                         </div>
                       </div>
 
-                      {/* 橘色提示文字和重新定位按钮（同一行） */}
-                      <div className="flex justify-between items-center py-2 mb-4">
-                        <span className="text-sm text-orange-500 dark:text-orange-400">
-                          若和弦标注完全偏离原位，请点击"重新定位"
-                        </span>
-                        <Button
-                          onClick={handleRelocate}
-                          disabled={isRelocating}
-                          variant="outline"
-                          className="min-w-[100px] ml-4"
-                        >
-                          {isRelocating ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              定位中...
-                            </>
-                          ) : (
-                            '重新定位'
-                          )}
-                        </Button>
-                      </div>
-
                       {/* 结果图片 */}
                       {(isAdjusting || isRelocating) ? (
                         <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
@@ -1430,6 +1408,35 @@ export default function TransposePage() {
                           <p className="text-gray-500">没有返回图片</p>
                         </div>
                       ) : null}
+
+                      {/* 橘色提示文字和重新定位按钮（在图片下方） */}
+                      <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-2 pt-2">
+                        <span className="text-sm text-orange-500 dark:text-orange-400">
+                          {isMobile ? (
+                            <>
+                              <div>若和弦标注完全偏离原位，</div>
+                              <div>请点击"重新定位"</div>
+                            </>
+                          ) : (
+                            '若和弦标注完全偏离原位，请点击"重新定位"'
+                          )}
+                        </span>
+                        <Button
+                          onClick={handleRelocate}
+                          disabled={isRelocating}
+                          variant="outline"
+                          className="min-w-[100px] sm:ml-4"
+                        >
+                          {isRelocating ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              定位中...
+                            </>
+                          ) : (
+                            '重新定位'
+                          )}
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
 
