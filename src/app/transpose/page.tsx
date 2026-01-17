@@ -60,8 +60,11 @@ function CalibrationMarker({
         alignItems: 'center',
         flexDirection: isFirst ? 'row' : 'row-reverse', // 第一个图标文字在右，第二个在左
         position: 'relative',
-        transform: isLongPressed ? 'scale(1.02)' : 'scale(1)',
-        transition: 'transform 0.15s ease-out',
+        transform: 'scale(1)', // 始终保持 1，不缩放
+        boxShadow: isLongPressed
+          ? '0 6px 16px rgba(24, 144, 255, 0.5), 0 2px 6px rgba(24, 144, 255, 0.3)' // 长按时显示蓝色阴影，营造"浮起"效果
+          : 'none',
+        transition: 'box-shadow 0.15s ease-out', // 阴影的平滑过渡
         // 强制禁止所有文本选择和默认触摸行为
         WebkitUserSelect: 'none',
         MozUserSelect: 'none',
