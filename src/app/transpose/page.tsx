@@ -808,6 +808,10 @@ export default function TransposePage() {
 
       const data = await apiResponse.json();
       setResult(data);
+      // 设置字号为后端返回的实际值（用于显示）
+      if (data.fontSize) {
+        setFontSize(data.fontSize);
+      }
       setPageState('result');
     } catch (error) {
       console.error('转调失败:', error);
@@ -1315,9 +1319,9 @@ export default function TransposePage() {
                                 variant="outline"
                                 onClick={() => {
                                   const newSize = (fontSize || 20) - 2;
-                                  setFontSize(newSize > 10 ? newSize : 10);
+                                  setFontSize(newSize > 12 ? newSize : 12);
                                 }}
-                                disabled={isAdjusting || (fontSize !== null && fontSize <= 10)}
+                                disabled={isAdjusting || (fontSize !== null && fontSize <= 12)}
                               >
                                 <span className="text-lg font-bold">-</span>
                               </Button>
@@ -1330,10 +1334,10 @@ export default function TransposePage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => {
-                                  const newSize = (fontSize || 20) + 2;
-                                  setFontSize(newSize < 60 ? newSize : 60);
+                                  const newSize = (fontSize || 20) + 6;
+                                  setFontSize(newSize < 72 ? newSize : 72);
                                 }}
-                                disabled={isAdjusting || (fontSize !== null && fontSize >= 60)}
+                                disabled={isAdjusting || (fontSize !== null && fontSize >= 72)}
                               >
                                 <span className="text-lg font-bold">+</span>
                               </Button>
