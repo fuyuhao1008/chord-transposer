@@ -707,17 +707,20 @@ class ChordTransposer {
    * 规范化调号（转换为标准格式）
    */
   normalizeKey(key: string): string {
-    const trimmed = key.trim().toUpperCase();
-    // 处理 1=C 格式
-    if (trimmed.startsWith('1=')) {
-      let result = trimmed.replace('1=', '');
+    const trimmed = key.trim(); // 去除强制大写转换，保留AI识别的原始大小写信息
+
+    // 处理 1=C 格式（不区分大小写替换前缀）
+    if (trimmed.toUpperCase().startsWith('1=')) {
+      let result = trimmed.replace(/1=/i, ''); // 使用正则不区分大小写
       return this.normalizeKeyCommonErrors(result);
     }
+
     // 处理 Key: C 格式
-    if (trimmed.startsWith('KEY:')) {
-      let result = trimmed.replace('KEY:', '');
+    if (trimmed.toUpperCase().startsWith('KEY:')) {
+      let result = trimmed.replace(/KEY:/i, '');
       return this.normalizeKeyCommonErrors(result);
     }
+
     return this.normalizeKeyCommonErrors(trimmed);
   }
 
@@ -730,29 +733,35 @@ class ChordTransposer {
     // 移除所有空格（处理 "B B" → "BB" 或 "B b" → "Bb"）
     result = result.replace(/\s+/g, '');
 
-    // 处理降号调的错误识别（包括字母顺序颠倒的情况）
+    // 处理纯音名（C, D, E...）
+    if (/^[A-Ga-g]$/.test(result)) {
+      // 只有小写c转换为大写C，其他音名保持原样
+      // 因为A-G中只有C的大小写长得很像，AI容易误识别
+      result = result === 'c' ? 'C' : result;
+      console.log(`🎵 纯音名: ${result}`);
+      return result;
+    }
+
+    // 处理降号调的错误识别（覆盖所有大小写组合）
     // 这些情况是AI可能把降号识别成了大写字母或顺序颠倒
     const flatMappings: Record<string, string> = {
-      // 重复字母（AI可能把降号识别成两个相同字母）
-      'BB': 'Bb',
-      'EE': 'Eb',
-      'AA': 'Ab',
-      'DD': 'Db',
-      'GG': 'Gb',
-      'CC': 'Cb',
-      'FF': 'F', // F调不需要降号
+      // 标准降号（大小写正确）- 保持不变，但列出来方便调试
+      'Bb': 'Bb', 'Eb': 'Eb', 'Ab': 'Ab', 'Db': 'Db', 'Gb': 'Gb', 'Cb': 'Cb',
+
+      // 全大写（强制转大写导致，如之前 bA → BA）
+      'BB': 'Bb', 'EE': 'Eb', 'AA': 'Ab', 'DD': 'Db', 'GG': 'Gb', 'CC': 'Cb', 'FF': 'F',
+
+      // 全小写（AI可能识别成小写）
+      'bb': 'Bb', 'eb': 'Eb', 'ab': 'Ab', 'db': 'Db', 'gb': 'Gb', 'cb': 'Cb',
+
+      // 混合情况1：小写升降号 + 大写音名（AI识别的标准降号写法）
+      'bB': 'Bb', 'bE': 'Eb', 'bA': 'Ab', 'bD': 'Db', 'bG': 'Gb', 'bC': 'Cb',
+
       // 字母顺序颠倒（AI可能把降号识别为两个大写字母的倒序）
-      'EB': 'Eb',
-      'DB': 'Db',
-      'AB': 'Ab',
-      'GB': 'Gb',
-      'CB': 'Cb',
-      // 大小写混合
-      'eB': 'Eb',
-      'd B': 'Db',
-      'aB': 'Ab',
-      'gB': 'Gb',
-      'cB': 'Cb',
+      'EB': 'Eb', 'DB': 'Db', 'AB': 'Ab', 'GB': 'Gb', 'CB': 'Cb',
+
+      // 额外的混合情况（大小写颠倒）
+      'eB': 'Eb', 'dB': 'Db', 'aB': 'Ab', 'gB': 'Gb', 'cB': 'Cb',
     };
 
     if (flatMappings[result]) {
