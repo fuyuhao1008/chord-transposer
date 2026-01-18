@@ -406,8 +406,9 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
   - Fine.、D.S.、D.C.、Segno、Coda 等是终止/重复记号，不是和弦，必须忽略
   - 不要识别"Fine."、".Fine"等作为和弦
   - 不要将"ine"、"Fine."等文本识别为和弦
-  - 如果看到"CD.S.al.Fine."，只识别"C"和弦，忽略后面的".S.al.Fine."
+  - 如果看到"CD.S.al.Fine."，只识别"C"和弦，忽略后面的"D.S.al.Fine."
   - 如果看到"D7Fine."，只识别"D7"和弦，忽略后面的"Fine."
+  - 若看到用"或"或"or"连接的两个和弦（如"G 或 G/B"），"或"字是分隔符，只返回第一个和弦"G"及其中心位置
 - 忽略歌词、简谱数字（1–7）、拍号（4/4 等）、速度标记
 
 ==============================
