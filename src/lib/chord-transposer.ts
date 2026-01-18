@@ -742,26 +742,17 @@ class ChordTransposer {
       return result;
     }
 
-    // 处理降号调的错误识别（覆盖所有大小写组合）
-    // 这些情况是AI可能把降号识别成了大写字母或顺序颠倒
+    // 处理降号调的错误识别
+    // 这些情况是AI可能把降号识别成的错误格式
     const flatMappings: Record<string, string> = {
-      // 标准降号（大小写正确）- 保持不变，但列出来方便调试
+      // 标准降号（保持不变，列出来方便调试）
       'Bb': 'Bb', 'Eb': 'Eb', 'Ab': 'Ab', 'Db': 'Db', 'Gb': 'Gb', 'Cb': 'Cb',
 
-      // 全大写（强制转大写导致，如之前 bA → BA）
-      'BB': 'Bb', 'EE': 'Eb', 'AA': 'Ab', 'DD': 'Db', 'GG': 'Gb', 'CC': 'Cb', 'FF': 'F',
-
-      // 全小写（AI可能识别成小写）
-      'bb': 'Bb', 'eb': 'Eb', 'ab': 'Ab', 'db': 'Db', 'gb': 'Gb', 'cb': 'Cb',
-
-      // 混合情况1：小写升降号 + 大写音名（AI识别的标准降号写法）
+      // 小写降号 + 大写音名（AI常见识别错误）
       'bB': 'Bb', 'bE': 'Eb', 'bA': 'Ab', 'bD': 'Db', 'bG': 'Gb', 'bC': 'Cb',
 
-      // 字母顺序颠倒（AI可能把降号识别为两个大写字母的倒序）
+      // 字母顺序颠倒（罕见情况，但可能发生）
       'EB': 'Eb', 'DB': 'Db', 'AB': 'Ab', 'GB': 'Gb', 'CB': 'Cb',
-
-      // 额外的混合情况（大小写颠倒）
-      'eB': 'Eb', 'dB': 'Db', 'aB': 'Ab', 'gB': 'Gb', 'cB': 'Cb',
     };
 
     if (flatMappings[result]) {
