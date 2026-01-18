@@ -8,14 +8,14 @@ echo ""
 
 # 设置环境变量
 export PORT="${PORT:-5000}"
-export HOST="0.0.0.0"
+export HOSTNAME="0.0.0.0"
 export NODE_ENV="production"
 export NEXT_TELEMETRY_DISABLED=1
 export __NEXT_PRIVATE_STANDALONE_CONFIG=1
 
 echo "Environment configuration:"
 echo "  PORT=$PORT"
-echo "  HOST=$HOST"
+echo "  HOSTNAME=$HOSTNAME"
 echo "  NODE_ENV=$NODE_ENV"
 echo "  NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED"
 echo ""
@@ -143,5 +143,5 @@ echo "Starting Next.js server on port $PORT..."
 echo "========================================"
 echo ""
 
-# 启动server，强制监听所有网络接口
-exec node server.js -H 0.0.0.0
+# 启动server
+exec node server.js
