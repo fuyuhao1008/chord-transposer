@@ -707,10 +707,7 @@ class ChordTransposer {
    * 规范化调号（转换为标准格式）
    */
   normalizeKey(key: string): string {
-    // 智能规范化：只转换根音字母为统一大小写，保留升降号的原大小写
-    // 这样可以避免把 bA 误转成 BA（导致两个字母都是大写）
-    const trimmed = key.trim().replace(/^([a-gA-G])/, (match) => match.toUpperCase());
-
+    const trimmed = key.trim().toUpperCase();
     // 处理 1=C 格式
     if (trimmed.startsWith('1=')) {
       let result = trimmed.replace('1=', '');
@@ -750,7 +747,6 @@ class ChordTransposer {
       'AB': 'Ab',
       'GB': 'Gb',
       'CB': 'Cb',
-      'BA': 'Bb', // bA → BA 的补充映射
       // 大小写混合
       'eB': 'Eb',
       'd B': 'Db',
