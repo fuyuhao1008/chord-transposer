@@ -143,5 +143,5 @@ echo "Starting Next.js server on port $PORT..."
 echo "========================================"
 echo ""
 
-# 启动server
-exec node server.js
+# 启动server，强制监听所有网络接口
+exec node server.js -H 0.0.0.0
