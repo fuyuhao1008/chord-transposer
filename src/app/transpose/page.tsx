@@ -1322,7 +1322,7 @@ export default function TransposePage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => {
-                                  const newSize = (fontSize || 20) - 2;
+                                  const newSize = (fontSize || 20) - 6;
                                   setFontSize(newSize > 12 ? newSize : 12);
                                 }}
                                 disabled={isAdjusting || (fontSize !== null && fontSize <= 12)}
