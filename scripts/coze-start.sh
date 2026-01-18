@@ -143,13 +143,8 @@ echo "Starting Next.js server on port $PORT..."
 echo "========================================"
 echo ""
 
-# 优先使用自定义服务器（强制监听0.0.0.0）
-if [ -f "custom-server.js" ]; then
-    echo "✓ Using custom server (custom-server.js)"
-    echo "  This server will listen on 0.0.0.0:$PORT"
-    exec node custom-server.js
-else
-    echo "⚠ Custom server not found, using standalone server.js"
-    echo "  Note: May not listen on 0.0.0.0, which could cause FaaS detection issues"
-    exec node server.js
-fi
+# 使用npx next start直接启动，强制监听0.0.0.0
+echo "✓ Using 'npx next start -H 0.0.0.0 -p $PORT'"
+echo "  This will listen on 0.0.0.0:$PORT"
+echo ""
+exec npx next start -H 0.0.0.0 -p $PORT
