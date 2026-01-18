@@ -143,7 +143,7 @@ echo "Starting Next.js server on port $PORT..."
 echo "========================================"
 echo ""
 
-# 使用npx next start直接启动，强制监听0.0.0.0
+# 使用标准 Next.js 启动命令（非standalone模式）
 echo "✓ Using 'npx next start -H 0.0.0.0 -p $PORT'"
 echo "  This will listen on 0.0.0.0:$PORT"
 echo ""
