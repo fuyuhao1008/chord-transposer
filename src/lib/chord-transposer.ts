@@ -750,9 +750,6 @@ class ChordTransposer {
 
       // 小写降号 + 大写音名（AI常见识别错误）
       'bB': 'Bb', 'bE': 'Eb', 'bA': 'Ab', 'bD': 'Db', 'bG': 'Gb', 'bC': 'Cb',
-
-      // 字母顺序颠倒（罕见情况，但可能发生）
-      'EB': 'Eb', 'DB': 'Db', 'AB': 'Ab', 'GB': 'Gb', 'CB': 'Cb',
     };
 
     if (flatMappings[result]) {
