@@ -7,6 +7,7 @@
 
 const { createServer } = require('http');
 const { parse } = require('url');
+const { join } = require('path');
 const next = require('next');
 
 // 获取配置
@@ -14,16 +15,20 @@ const dev = process.env.NODE_ENV !== 'production';
 const port = parseInt(process.env.PORT, 10) || 5000;
 const hostname = '0.0.0.0'; // 强制监听所有网络接口
 
+// standalone模式下需要设置dir参数
+const dir = join(__dirname);
+
 console.log('========================================');
 console.log('Starting Custom Next.js Server');
 console.log('========================================');
 console.log(`Environment: ${dev ? 'development' : 'production'}`);
 console.log(`Port: ${port}`);
 console.log(`Hostname: ${hostname}`);
+console.log(`Working directory: ${dir}`);
 console.log('');
 
-// 创建Next.js应用实例
-const app = next({ dev, hostname, port });
+// 创建Next.js应用实例（standalone模式需要dir参数）
+const app = next({ dev, hostname, port, dir });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
@@ -47,4 +52,7 @@ app.prepare().then(() => {
       console.log(`Listening on http://${hostname}:${port}`);
       console.log('========================================');
     });
+}).catch((err) => {
+  console.error('Failed to start Next.js app:', err);
+  process.exit(1);
 });
