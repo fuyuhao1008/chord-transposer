@@ -175,7 +175,23 @@ for file in "${ESSENTIAL_FILES[@]}"; do
 done
 echo ""
 
-echo "Step 8: Final structure check..."
+echo "Step 8: Copying custom server script..."
+if [ -f "scripts/custom-server.js" ]; then
+    if [ -d "$STANDALONE_ROOT" ]; then
+        echo "Copying custom server to $STANDALONE_ROOT/..."
+        cp scripts/custom-server.js "$STANDALONE_ROOT/custom-server.js" || {
+            echo "WARNING: Failed to copy custom server, will use standalone server"
+        }
+        echo "✓ Custom server copied"
+    else
+        echo "WARNING: Standalone root directory does not exist, skipping custom server copy"
+    fi
+else
+    echo "WARNING: Custom server not found, skipping"
+fi
+echo ""
+
+echo "Step 9: Final structure check..."
 echo "Standalone directory tree ($STANDALONE_ROOT):"
 if command -v tree >/dev/null 2>&1; then
     tree -L 2 -d "$STANDALONE_ROOT/" 2>/dev/null || find "$STANDALONE_ROOT/" -maxdepth 2 -type d | head -20

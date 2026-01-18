@@ -7,6 +7,7 @@
     "dev": "next dev",
     "lint": "eslint",
     "start": "next start",
+    "start:custom": "node scripts/custom-server.js",
     "ts-check": "tsc -p tsconfig.json"
   },
   "dependencies": {
