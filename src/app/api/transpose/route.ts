@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     // 去重和异常值检测（基于像素坐标）
     const dedupedCenters: any[] = [];
-    const pixelDistanceThreshold = Math.max(imgWidth, imgHeight) * 0.015; // 1.5%的最大边长作为阈值（更精确）
+    const pixelDistanceThreshold = Math.max(imgWidth, imgHeight) * 0.01; // 1%的最大边长作为阈值（避免误删）
 
     // 检测异常Y值：计算所有和弦的Y坐标中位数
     const yCoordinates = validCenters.map((c: any) => c.cy);

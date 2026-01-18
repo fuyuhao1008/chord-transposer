@@ -730,9 +730,10 @@ class ChordTransposer {
     // 移除所有空格（处理 "B B" → "BB" 或 "B b" → "Bb"）
     result = result.replace(/\s+/g, '');
 
-    // 处理降号调的错误识别（BB → Bb, EE → Eb 等）
-    // 这些情况是AI可能把降号识别成了大写字母
+    // 处理降号调的错误识别（包括字母顺序颠倒的情况）
+    // 这些情况是AI可能把降号识别成了大写字母或顺序颠倒
     const flatMappings: Record<string, string> = {
+      // 重复字母（AI可能把降号识别成两个相同字母）
       'BB': 'Bb',
       'EE': 'Eb',
       'AA': 'Ab',
@@ -740,6 +741,18 @@ class ChordTransposer {
       'GG': 'Gb',
       'CC': 'Cb',
       'FF': 'F', // F调不需要降号
+      // 字母顺序颠倒（AI可能把降号识别为两个大写字母的倒序）
+      'EB': 'Eb',
+      'DB': 'Db',
+      'AB': 'Ab',
+      'GB': 'Gb',
+      'CB': 'Cb',
+      // 大小写混合
+      'eB': 'Eb',
+      'd B': 'Db',
+      'aB': 'Ab',
+      'gB': 'Gb',
+      'cB': 'Cb',
     };
 
     if (flatMappings[result]) {
