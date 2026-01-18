@@ -8,12 +8,14 @@ echo ""
 
 # 设置环境变量
 export PORT="${PORT:-5000}"
+export HOST="0.0.0.0"
 export NODE_ENV="production"
 export NEXT_TELEMETRY_DISABLED=1
 export __NEXT_PRIVATE_STANDALONE_CONFIG=1
 
 echo "Environment configuration:"
 echo "  PORT=$PORT"
+echo "  HOST=$HOST"
 echo "  NODE_ENV=$NODE_ENV"
 echo "  NEXT_TELEMETRY_DISABLED=$NEXT_TELEMETRY_DISABLED"
 echo ""
