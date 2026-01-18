@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 生成标注后的图片（使用canvas）
-    const resultImage = await annotateImage(
+    const annotateResult = await annotateImage(
       imageBuffer,
       transposeResult,
       chordColor,
@@ -347,14 +347,14 @@ export async function POST(request: NextRequest) {
       targetKey: transposeResult.targetKey,
       semitones: transposeResult.semitones,
       chordColor: chordColor,
-      fontSize: fontSize,
+      fontSize: annotateResult.fontSize, // 使用实际使用的fontSize
       chords: transposeResult.chords.map(item => ({
         original: chordTransposer.chordToString(item.original),
         transposed: chordTransposer.chordToString(item.transposed),
         x: item.transposed.x,
         y: item.transposed.y,
       })),
-      resultImage: resultImage,
+      resultImage: annotateResult.resultImage, // 使用返回的resultImage
       recognition: recognitionResult,
     });
   } catch (error) {
@@ -589,6 +589,7 @@ function rectanglesOverlap(
  * @param transposeResult 转调结果
  * @param chordColor 和弦颜色
  * @param customFontSize 自定义字体大小（可选，如果不提供则自动计算）
+ * @returns 包含图片base64和实际使用的fontSize
  */
 async function annotateImage(
   imageBuffer: Buffer,
@@ -597,7 +598,7 @@ async function annotateImage(
   customFontSize?: number | null,
   originalKey: string = '',
   targetKey: string = ''
-): Promise<string> {
+): Promise<{ resultImage: string; fontSize: number }> {
   try {
     const { createCanvas, loadImage } = require('canvas');
 
@@ -784,11 +785,17 @@ async function annotateImage(
     // 转换为 Buffer
     const resultBuffer = canvas.toBuffer('image/jpeg', { quality: 0.95 });
 
-    // 返回 base64 格式
-    return `data:image/jpeg;base64,${resultBuffer.toString('base64')}`;
+    // 返回 base64 格式和实际使用的fontSize
+    return {
+      resultImage: `data:image/jpeg;base64,${resultBuffer.toString('base64')}`,
+      fontSize: fontSize,
+    };
   } catch (error) {
     console.error('图片标注失败:', error);
-    // 失败时返回原图
-    return `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+    // 失败时返回原图和默认fontSize
+    return {
+      resultImage: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
+      fontSize: 20, // 失败时返回默认值
+    };
   }
 }

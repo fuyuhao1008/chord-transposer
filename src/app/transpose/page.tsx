@@ -861,6 +861,10 @@ export default function TransposePage() {
 
       const data = await apiResponse.json();
       setResult(data);
+      // 设置字号为后端返回的实际值（用于显示）
+      if (data.fontSize) {
+        setFontSize(data.fontSize);
+      }
     } catch (error) {
       console.error('调整失败:', error);
       alert('调整失败，请稍后重试');
