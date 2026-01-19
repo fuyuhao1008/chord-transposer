@@ -317,18 +317,26 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
     const config = new Config();
     const client = new LLMClient(config);
 
-    // 构造详细的提示词（千分比坐标 + 中心点定位）
-    const systemPrompt = `你是一个专业的简谱和弦 OCR 定位系统。你的任务是从一张简谱图片中识别调号，并定位所有和弦标记的精确位置。
+    // 构造优化的提示词（绝对像素坐标 + 中心点定位）
+    const systemPrompt = `你是一个专业的简谱和弦 OCR 定位系统。你的任务是从一张简谱图片中识别调号，并定位所有和弦标记的精确像素位置。
 
-【坐标系统 - 最重要】
-使用千分比坐标系统，范围是 0-1000。
-- cx: 水平位置，0 代表图片最左边，1000 代表图片最右边
-- cy: 垂直位置，0 代表图片最上边，1000 代表图片最下边
-- 所有坐标必须是整数，范围 [0, 1000]
-- 千分比计算公式：实际像素坐标 / 图片宽度或高度 * 1000
+==============================
+【图片尺寸（非常重要）】
+- 图片宽度：${imgWidth} 像素
+- 图片高度：${imgHeight} 像素
+- 图片左上角坐标为 (0, 0)
+- 图片右下角坐标为 (${imgWidth}, ${imgHeight})
 
-示例：如果一个和弦位于图片宽度的 1/2 处，则 cx = 500；位于高度的 3/4 处，则 cy = 750。
+==============================
+【唯一允许的坐标系统】
+- 坐标必须是"绝对像素坐标"
+- x 轴范围：0 ≤ x ≤ ${imgWidth}
+- y 轴范围：0 ≤ y ≤ ${imgHeight}
+- ❌ 不允许使用百分比
+- ❌ 不允许使用 0–1 或 0–100 的归一化坐标
+- ❌ 不允许相对坐标或比例坐标
 
+==============================
 【识别任务】
 
 1. 调号识别：
@@ -349,14 +357,14 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
   2. 上标形式（浮在上半空间）：F^#、B^b、G^#m（类似 A7sus4 中 7、4 的上标）
   3. 前置形式：#F、bE（识别后请转换为标准形式 F#、Eb）
 - 无论升降号以何种形式出现，都应识别并返回标准格式（如 F# 而非 F^#）
-- 带括号的和弦处理：
+- ⚠️ 带括号的和弦处理（非常重要）：
   - 如果和弦带有括号（如 Em7(b5)、D(add2)、Am7(b9)），请去掉括号，转换为标准形式
   - Em7(b5) 识别为 "Em7b5"
   - D(add2) 识别为 "Dadd2"
   - Am7(b9) 识别为 "Am7b9"
   - Gmaj7(#11) 识别为 "Gmaj7#11"
   - 括号只是排版格式，不影响和弦的实际含义
-- 终止标记和重复记号：
+- ⚠️ 终止标记和重复记号（非常重要）：
   - Fine.、D.S.、D.C.、Segno、Coda 等是终止/重复记号，不是和弦，必须忽略
   - 不要识别"Fine."、".Fine"等作为和弦
   - 不要将"ine"、"Fine."等文本识别为和弦
@@ -365,36 +373,41 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
   - 若看到用"或"或"or"连接的两个和弦（如"G 或 G/B"），"或"字是分隔符，只返回第一个和弦"G"及其中心位置
 - 忽略歌词、简谱数字（1–7）、拍号（4/4 等）、速度标记
 
-【坐标定位规则】
+==============================
+【坐标定位规则（严格）】
+
 你的任务不是返回边界框，而是返回每个和弦文字的"视觉中心点"。
-- 返回 cx, cy（千分比坐标）
-- cx 和 cy 必须在 [0, 1000] 范围内
-- cx 必须真实反映和弦在图片中的水平位置
-- cy 必须真实反映和弦在图片中的垂直位置
 
-【分布校验规则】
-- 如果图片下半部分（cy > 500）存在和弦，必须返回对应坐标
-- 不允许所有和弦的 cy 值集中在图片上半部分（cy < 500）
-- 图片底部区域（cy > 750）出现的和弦，必须被识别并返回
+- 返回 center_x, center_y
+- center_x, center_y 必须是绝对像素坐标
+- center_y 必须真实反映和弦在图片中的垂直位置
+- center_x 必须真实反映和弦在图片中的水平位置
 
+==============================
+【分布校验规则（必须遵守）】
+
+- 如果图片下半部分（y > ${Math.floor(imgHeight * 0.5)}）存在和弦，必须返回对应坐标
+- 不允许所有和弦的 y 值集中在图片上半部分
+- 图片底部区域（y > ${Math.floor(imgHeight * 0.75)}）出现的和弦，必须被识别并返回
+
+==============================
 【返回格式（只允许 JSON）】
+
 {
   "key": "A" 或 null,
   "centers": [
     { "text": "D",   "cx": 145, "cy": 260 },
     { "text": "A",   "cx": 390, "cy": 260 },
-    { "text": "F#m", "cx": 640, "cy": 480 }
+    { "text": "F#m", "cx": 800, "cy": 1480 }
   ]
 }
 
-不要输出任何解释性文字
-不要使用 Markdown
-不要省略任何检测到的和弦
-按从左到右、从上到下的顺序返回
-所有坐标必须是 0-1000 范围内的整数`;
+❗ 不要输出任何解释性文字
+❗ 不要使用 Markdown
+❗ 不要省略任何检测到的和弦
+❗ 按从左到右、从上到下的顺序返回`;
 
-
-    const userPrompt = '分析这张简谱图片，识别调号和所有和弦标记，以JSON格式返回。特别注意：必须返回每个和弦中心点的千分比坐标（cx, cy），坐标范围必须是 0-1000 的整数。';
+    const userPrompt = '请分析这张简谱图片，识别调号和所有和弦标记，以JSON格式返回。特别注意：必须返回每个和弦的真实像素中心点坐标（cx, cy），坐标范围必须是 0-' + imgWidth + '（x轴）和 0-' + imgHeight + '（y轴）。';
 
     // 构造消息（多模态）
     const messages = [
@@ -605,53 +618,41 @@ async function annotateImage(
       });
     }
 
-    // 第二步：检测重叠并调整颜色（优化版图着色算法）
-    // 策略：找出每个连通分量，从左到右交替着色
-    // 复杂度优化：时间O(n²)，空间O(n)（不存储邻接表）
+    // 第二步：检测重叠并调整颜色（按位置交替变化）
+    // 1. 检测所有重叠的和弦（使用小padding的矩形进行检测）
+    const overlappingChords: number[] = []; // 存储重叠和弦的索引
 
-    const visited = new Array<boolean>(chordDrawInfos.length).fill(false);
-    const colorAssignments = new Array<boolean>(chordDrawInfos.length).fill(false); // false=原色, true=浅色
+    for (let i = 0; i < chordDrawInfos.length; i++) {
+      let hasOverlap = false;
+      for (let j = 0; j < chordDrawInfos.length; j++) {
+        if (i === j) continue;
 
-    for (let start = 0; start < chordDrawInfos.length; start++) {
-      if (visited[start]) continue;
+        const current = chordDrawInfos[i];
+        const other = chordDrawInfos[j];
 
-      // DFS收集整个连通分量（使用栈，避免队列开销）
-      const component: number[] = [];
-      const stack: number[] = [start];
-      visited[start] = true;
-
-      while (stack.length > 0) {
-        const u = stack.pop()!;
-        component.push(u);
-
-        // 动态检测重叠关系（不预先构建邻接表）
-        for (let v = 0; v < chordDrawInfos.length; v++) {
-          if (v === u || visited[v]) continue;
-
-          const a = chordDrawInfos[u];
-          const b = chordDrawInfos[v];
-          if (rectanglesOverlap(
-            a.overlapRectX, a.overlapRectY, a.overlapRectWidth, a.overlapRectHeight,
-            b.overlapRectX, b.overlapRectY, b.overlapRectWidth, b.overlapRectHeight
-          )) {
-            visited[v] = true;
-            stack.push(v);
-          }
+        // 使用小padding的重叠检测矩形来判断是否重叠
+        if (rectanglesOverlap(
+          current.overlapRectX, current.overlapRectY, current.overlapRectWidth, current.overlapRectHeight,
+          other.overlapRectX, other.overlapRectY, other.overlapRectWidth, other.overlapRectHeight
+        )) {
+          hasOverlap = true;
+          break;
         }
       }
 
-      // 按x坐标排序（从左到右）
-      component.sort((a, b) => chordDrawInfos[a].x - chordDrawInfos[b].x);
-
-      // 交替着色：第1个原色，第2个浅色，第3个原色...
-      for (let k = 0; k < component.length; k++) {
-        colorAssignments[component[k]] = (k % 2 === 1);
+      if (hasOverlap) {
+        overlappingChords.push(i);
       }
     }
 
-    // 应用颜色
-    for (let i = 0; i < chordDrawInfos.length; i++) {
-      if (colorAssignments[i]) {
+    // 2. 将重叠的和弦按照x坐标（从左到右）排序
+    overlappingChords.sort((a, b) => chordDrawInfos[a].x - chordDrawInfos[b].x);
+
+    // 3. 按排序顺序交替分配颜色（第1个原色，第2个浅色，第3个原色...）
+    for (let k = 0; k < overlappingChords.length; k++) {
+      const i = overlappingChords[k]; // 原始索引
+      if (k % 2 === 1) {
+        // 偶数索引（第2、4、6...个）使用浅色
         chordDrawInfos[i].color = lightenColor(chordColor, 0.4);
       }
     }
@@ -677,19 +678,16 @@ async function annotateImage(
       ctx.fillText(info.chordText, info.x, info.y);
     }
 
-    // 在左上角绘制转调标记
+    // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
-      const markFontSize = Math.floor(image.width * 0.04); // 宽度的4%
-      const arrow = ' → '; // 箭头
+      const markFontSize = Math.max(24, Math.min(40, Math.round(image.width / 30))); // 增大字号
+      const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
       // 计算文本尺寸
       ctx.font = `normal ${markFontSize}px Georgia, serif`; // Georgia字体，不加粗
-      const originalMetrics = ctx.measureText(originalKey);
-      const arrowMetrics = ctx.measureText(arrow);
-      const targetMetrics = ctx.measureText(targetKey);
-
-      const totalWidth = originalMetrics.width + arrowMetrics.width + targetMetrics.width;
+      const markMetrics = ctx.measureText(markText);
+      const markWidth = markMetrics.width;
       const markHeight = markFontSize * 1.2;
 
       // 计算左上角位置（留出边距）
@@ -701,25 +699,15 @@ async function annotateImage(
       ctx.fillRect(
         markX - markPadding / 2,
         markY - markHeight - markPadding / 2,
-        totalWidth + markPadding * 1.5,
+        markWidth + markPadding * 1.5,
         markHeight + markPadding
       );
 
-      // 设置文本绘制属性
+      // 绘制蓝色文字（左对齐）
+      ctx.fillStyle = '#2563EB'; // 蓝色
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-
-      // 绘制原调（黑色）
-      ctx.fillStyle = '#000000'; // 黑色
-      ctx.fillText(originalKey, markX, markY - markHeight);
-
-      // 绘制箭头（黑色）
-      ctx.fillStyle = '#000000'; // 黑色
-      ctx.fillText(arrow, markX + originalMetrics.width, markY - markHeight);
-
-      // 绘制目标调（蓝色）
-      ctx.fillStyle = '#2563EB'; // 蓝色
-      ctx.fillText(targetKey, markX + originalMetrics.width + arrowMetrics.width, markY - markHeight);
+      ctx.fillText(markText, markX, markY - markHeight);
     }
 
     // 转换为 Buffer
