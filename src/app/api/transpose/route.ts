@@ -617,7 +617,7 @@ async function annotateImage(
     ctx.drawImage(image, 0, 0);
 
     // 计算字体大小：如果提供了自定义值则使用，否则动态计算
-    const fontSize = customFontSize || Math.max(16, Math.min(28, Math.round(image.width / 45)));
+    const fontSize = customFontSize || Math.max(16, Math.min(88, Math.round(image.width / 45)));
 
     // 设置字体（用于测量文本）
     ctx.font = `normal ${fontSize}px Georgia, serif`;
@@ -696,44 +696,66 @@ async function annotateImage(
       });
     }
 
-    // 第二步：检测重叠并调整颜色（按位置交替变化）
-    // 1. 检测所有重叠的和弦（使用小padding的矩形进行检测）
-    const overlappingChords: number[] = []; // 存储重叠和弦的索引
+    // 第二步：检测重叠并调整颜色
+    // 策略：构建重叠图，对每个连通分量从左到右交替着色
 
+    // 1. 构建邻接表
+    const adjacency: number[][] = Array.from({ length: chordDrawInfos.length }, () => []);
     for (let i = 0; i < chordDrawInfos.length; i++) {
-      let hasOverlap = false;
-      for (let j = 0; j < chordDrawInfos.length; j++) {
-        if (i === j) continue;
-
-        const current = chordDrawInfos[i];
-        const other = chordDrawInfos[j];
-
-        // 使用小padding的重叠检测矩形来判断是否重叠
+      for (let j = i + 1; j < chordDrawInfos.length; j++) {
+        const a = chordDrawInfos[i];
+        const b = chordDrawInfos[j];
         if (rectanglesOverlap(
-          current.overlapRectX, current.overlapRectY, current.overlapRectWidth, current.overlapRectHeight,
-          other.overlapRectX, other.overlapRectY, other.overlapRectWidth, other.overlapRectHeight
+          a.overlapRectX, a.overlapRectY, a.overlapRectWidth, a.overlapRectHeight,
+          b.overlapRectX, b.overlapRectY, b.overlapRectWidth, b.overlapRectHeight
         )) {
-          hasOverlap = true;
-          break;
+          adjacency[i].push(j);
+          adjacency[j].push(i);
+        }
+      }
+    }
+
+    // 2. 找出每个连通分量并从左到右交替着色
+    const visited = new Set<number>();
+    const colorAssignments: boolean[] = Array(chordDrawInfos.length).fill(false); // false=原色, true=浅色
+
+    for (let start = 0; start < chordDrawInfos.length; start++) {
+      if (visited.has(start)) continue;
+
+      // BFS收集整个连通分量
+      const component: number[] = [];
+      const queue: number[] = [start];
+      visited.add(start);
+
+      while (queue.length > 0) {
+        const u = queue.shift()!;
+        component.push(u);
+
+        for (const v of adjacency[u]) {
+          if (!visited.has(v)) {
+            visited.add(v);
+            queue.push(v);
+          }
         }
       }
 
-      if (hasOverlap) {
-        overlappingChords.push(i);
+      // 按x坐标排序（从左到右）
+      component.sort((a, b) => chordDrawInfos[a].x - chordDrawInfos[b].x);
+
+      // 交替着色：第1个原色，第2个浅色，第3个原色...
+      for (let k = 0; k < component.length; k++) {
+        colorAssignments[component[k]] = (k % 2 === 1);
       }
     }
 
-    // 2. 将重叠的和弦按照x坐标（从左到右）排序
-    overlappingChords.sort((a, b) => chordDrawInfos[a].x - chordDrawInfos[b].x);
-
-    // 3. 按排序顺序交替分配颜色（第1个原色，第2个浅色，第3个原色...）
-    for (let k = 0; k < overlappingChords.length; k++) {
-      const i = overlappingChords[k]; // 原始索引
-      if (k % 2 === 1) {
-        // 偶数索引（第2、4、6...个）使用浅色
+    // 3. 应用颜色
+    for (let i = 0; i < chordDrawInfos.length; i++) {
+      if (colorAssignments[i]) {
         chordDrawInfos[i].color = lightenColor(chordColor, 0.4);
       }
     }
+
+    // 第二步：绘制所有白色背景框（圆角矩形）
 
     // 第二步：绘制所有白色背景框（圆角矩形）
     for (const info of chordDrawInfos) {
@@ -756,16 +778,19 @@ async function annotateImage(
       ctx.fillText(info.chordText, info.x, info.y);
     }
 
-    // 在左上角绘制转调标记（蓝色）
+    // 在左上角绘制转调标记
     if (originalKey && targetKey) {
-      const markFontSize = Math.max(24, Math.min(40, Math.round(image.width / 30))); // 增大字号
-      const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
+      const markFontSize = Math.floor(image.width * 0.025); // 宽度的2.5%
+      const arrow = ' → '; // 箭头
       const markPadding = 15;
 
       // 计算文本尺寸
       ctx.font = `normal ${markFontSize}px Georgia, serif`; // Georgia字体，不加粗
-      const markMetrics = ctx.measureText(markText);
-      const markWidth = markMetrics.width;
+      const originalMetrics = ctx.measureText(originalKey);
+      const arrowMetrics = ctx.measureText(arrow);
+      const targetMetrics = ctx.measureText(targetKey);
+
+      const totalWidth = originalMetrics.width + arrowMetrics.width + targetMetrics.width;
       const markHeight = markFontSize * 1.2;
 
       // 计算左上角位置（留出边距）
@@ -777,15 +802,25 @@ async function annotateImage(
       ctx.fillRect(
         markX - markPadding / 2,
         markY - markHeight - markPadding / 2,
-        markWidth + markPadding * 1.5,
+        totalWidth + markPadding * 1.5,
         markHeight + markPadding
       );
 
-      // 绘制蓝色文字（左对齐）
-      ctx.fillStyle = '#2563EB'; // 蓝色
+      // 设置文本绘制属性
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(markText, markX, markY - markHeight);
+
+      // 绘制原调（黑色）
+      ctx.fillStyle = '#000000'; // 黑色
+      ctx.fillText(originalKey, markX, markY - markHeight);
+
+      // 绘制箭头（黑色）
+      ctx.fillStyle = '#000000'; // 黑色
+      ctx.fillText(arrow, markX + originalMetrics.width, markY - markHeight);
+
+      // 绘制目标调（蓝色）
+      ctx.fillStyle = '#2563EB'; // 蓝色
+      ctx.fillText(targetKey, markX + originalMetrics.width + arrowMetrics.width, markY - markHeight);
     }
 
     // 转换为 Buffer
