@@ -357,6 +357,13 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
   2. 上标形式（浮在上半空间）：F^#、B^b、G^#m（类似 A7sus4 中 7、4 的上标）
   3. 前置形式：#F、bE（识别后请转换为标准形式 F#、Eb）
 - 无论升降号以何种形式出现，都应识别并返回标准格式（如 F# 而非 F^#）
+- ⚠️ 带括号的和弦处理（非常重要）：
+  - 如果和弦带有括号（如 Em7(b5)、D(add2)、Am7(b9)），请去掉括号，转换为标准形式
+  - Em7(b5) 识别为 "Em7b5"
+  - D(add2) 识别为 "Dadd2"
+  - Am7(b9) 识别为 "Am7b9"
+  - Gmaj7(#11) 识别为 "Gmaj7#11"
+  - 括号只是排版格式，不影响和弦的实际含义
 - ⚠️ 终止标记和重复记号（非常重要）：
   - Fine.、D.S.、D.C.、Segno、Coda 等是终止/重复记号，不是和弦，必须忽略
   - 不要识别"Fine."、".Fine"等作为和弦
