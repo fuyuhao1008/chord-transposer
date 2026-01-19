@@ -608,10 +608,6 @@ async function annotateImage(
         continue;
       }
 
-      if (chord.x < 0 || chord.x > 100 || chord.y < 0 || chord.y > 100) {
-        continue;
-      }
-
       // 转换百分比坐标为实际像素坐标
       const x = Math.round((chord.x / 100) * image.width);
       const y = Math.round((chord.y / 100) * image.height);
