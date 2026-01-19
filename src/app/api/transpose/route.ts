@@ -4,7 +4,8 @@ import sharp from 'sharp';
 import { LLMClient, Config, APIError } from 'coze-coding-dev-sdk';
 
 // 可用视觉模型列表（按优先级排序）
-// 优先级：纯视觉模型 > 支持视觉的多模态模型 > 通用模型
+// 注意：只有真正支持视觉的模型才能被列入此列表
+// 文本模型（thinking, flash等）不能处理图片，不能作为备用
 const AVAILABLE_VISION_MODELS = [
   // 纯视觉模型（优先）
   'doubao-seed-1-6-vision-250815',
@@ -12,10 +13,6 @@ const AVAILABLE_VISION_MODELS = [
   // 支持视觉的多模态模型（备选）
   'doubao-seed-1-8-251228',
   'doubao-seed-1-6-251015',
-  
-  // 其他支持视觉的模型（紧急备用）
-  'doubao-seed-1-6-thinking-250715',
-  'doubao-seed-1-6-flash-250615',
 ] as const;
 
 /**
@@ -26,8 +23,8 @@ function getVisionModelPriority(modelId: string): number {
   if (modelId.includes('vision')) {
     return 1;
   }
-  // 多模态Agent模型：优先级中等（2）
-  if (modelId.includes('-8-') || modelId.includes('agent')) {
+  // 多模态模型（支持视觉）：优先级中等（2）
+  if (modelId.includes('-8-') || modelId.includes('1-6-251015')) {
     return 2;
   }
   // 其他模型：优先级最低（3）
