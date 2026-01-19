@@ -16,7 +16,7 @@ interface VisionModelConfig {
 
 // 可用视觉模型列表（配置化，按优先级排序）
 // 注意：只有真正支持视觉的模型才能被列入此列表
-// 文本模型（thinking, flash等）不能处理图片，不能作为备用
+// 文本模型（thinking, flash, lite等）不能处理图片，不能作为备用
 const AVAILABLE_VISION_MODELS: readonly VisionModelConfig[] = [
   {
     id: 'doubao-seed-1-6-vision-250815',
@@ -27,12 +27,6 @@ const AVAILABLE_VISION_MODELS: readonly VisionModelConfig[] = [
   {
     id: 'doubao-seed-1-8-251228',
     name: '多模态Agent',
-    type: 'multimodal',
-    priority: 2,
-  },
-  {
-    id: 'doubao-seed-1-6-251015',
-    name: '平衡性能',
     type: 'multimodal',
     priority: 2,
   },
@@ -92,8 +86,18 @@ function getPrimaryModel(): string {
 }
 
 /**
- * 智能选择备用模型
- * 优先级：1. 纯视觉模型 2. 多模态模型 3. 其他模型
+ * 检查模型是否包含"视觉"或"vision"关键词（不区分大小写）
+ */
+function isVisionKeywordModel(model: VisionModelConfig): boolean {
+  const lowerId = model.id.toLowerCase();
+  const lowerName = model.name.toLowerCase();
+  return lowerId.includes('vision') || lowerName.includes('vision') ||
+         lowerId.includes('视觉') || lowerName.includes('视觉');
+}
+
+/**
+ * 智能选择备用模型（优先视觉模型）
+ * 优先级：1. 包含"视觉"/"vision"关键词的模型 2. 纯视觉模型 3. 多模态模型
  * 排除当前失败的模型
  */
 function selectFallbackModel(excludedModel: string): string {
@@ -106,29 +110,33 @@ function selectFallbackModel(excludedModel: string): string {
     throw new Error('没有可用的备用模型');
   }
   
-  // 按优先级分组
-  const modelsByPriority: Record<number, VisionModelConfig[]> = {
-    1: availableModels.filter(m => m.priority === 1),
-    2: availableModels.filter(m => m.priority === 2),
-    3: availableModels.filter(m => m.priority === 3),
-  };
-  
-  // 优先选择同优先级或更优的模型
-  // 如果失败的是纯视觉模型（优先级1），尝试其他纯视觉模型
-  // 如果失败的是多模态模型（优先级2），尝试纯视觉模型
-  // 如果失败的是其他模型（优先级3），尝试纯视觉或多模态模型
-  
-  // 按优先级顺序查找
-  for (const priority of [1, 2, 3]) {
-    const candidates = modelsByPriority[priority];
-    if (candidates && candidates.length > 0) {
-      const selected = candidates[0];
-      console.log(`🔍 智能选择备用模型: ${selected.id} (${selected.name}, 优先级: ${selected.priority})`);
-      return selected.id;
-    }
+  // 策略1：优先选择包含"视觉"/"vision"关键词的模型
+  const visionKeywordModels = availableModels.filter(m => isVisionKeywordModel(m));
+  if (visionKeywordModels.length > 0) {
+    const selected = visionKeywordModels[0];
+    console.log(`🔍 智能选择备用模型（视觉关键词优先）: ${selected.id} (${selected.name}, 优先级: ${selected.priority})`);
+    return selected.id;
   }
   
-  // 如果所有模型都不可用，返回第一个（作为最后的尝试）
+  // 策略2：按模型类型优先级选择（纯视觉 > 多模态）
+  const pureVisionModels = availableModels.filter(m => m.type === 'pure-vision');
+  const multimodalModels = availableModels.filter(m => m.type === 'multimodal');
+  
+  // 优先选择纯视觉模型
+  if (pureVisionModels.length > 0) {
+    const selected = pureVisionModels[0];
+    console.log(`🔍 智能选择备用模型（纯视觉优先）: ${selected.id} (${selected.name}, 优先级: ${selected.priority})`);
+    return selected.id;
+  }
+  
+  // 其次选择多模态模型
+  if (multimodalModels.length > 0) {
+    const selected = multimodalModels[0];
+    console.log(`🔍 智能选择备用模型（多模态次选）: ${selected.id} (${selected.name}, 优先级: ${selected.priority})`);
+    return selected.id;
+  }
+  
+  // 如果所有策略都失败，返回第一个可用模型
   return availableModels[0].id;
 }
 
