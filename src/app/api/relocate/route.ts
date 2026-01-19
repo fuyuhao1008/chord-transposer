@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     // 显式排序：按Y坐标优先（从上到下），X坐标次之（从左到右）
     dedupedCenters.sort((a: any, b: any) => {
-      if (Math.abs(a.cy - b.cy) < 3) { // Y坐标相差小于3（千分比），认为是同一行
+      if (Math.abs(a.cy - b.cy) < 20) { // Y坐标相差小于20（千分比，即2%），认为是同一行
         return a.cx - b.cx; // 同一行按X排序
       }
       return a.cy - b.cy; // 不同行按Y排序
