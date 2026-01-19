@@ -12,7 +12,7 @@ interface Point {
   y: number;
 }
 
-type PageState = 'upload' | 'uploading' | 'settings' | 'processing' | 'result';
+type PageState = 'upload' | 'locating_first' | 'locating_last' | 'settings' | 'processing' | 'result';
 
 // 图标组件：精确的圆圈和文字框设计
 function CalibrationMarker({
@@ -546,7 +546,7 @@ export default function TransposePage() {
       reader.onload = (e) => {
         setImageSrc(e.target?.result as string);
         setImageKey(prev => prev + 1);
-        setPageState('upload'); // 保持在upload状态，显示预览和确认按钮
+        setPageState('locating_first');
         setAnchorPoints([]);
         setResult(null);
         setOriginalKey('');
@@ -555,53 +555,6 @@ export default function TransposePage() {
         setIsRecognizing(false);
       };
       reader.readAsDataURL(file);
-    }
-  };
-
-  // 确认上传并开始识别
-  const handleConfirmUpload = async () => {
-    if (!imageSrc) return;
-
-    try {
-      setIsRecognizing(true);
-      setPageState('uploading'); // 进入上传识别状态
-
-      // 调用识别API
-      const formData = new FormData();
-      const imageFile = await fetch(imageSrc).then(res => res.blob());
-      formData.append('image', imageFile, 'image.jpg');
-      formData.append('onlyRecognizeKey', 'true');
-
-      const response = await fetch('/api/transpose', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '识别失败');
-      }
-
-      // 自动填充原调
-      if (data.originalKey) {
-        setOriginalKey(data.originalKey);
-        setIsAutoRecognized(true); // 标记为AI自动识别
-      }
-
-      // 缓存和弦数据（用于转调时复用）
-      if (data.recognitionResult) {
-        setChordsData(data.recognitionResult);
-      }
-
-      // 跳转到settings页面
-      setPageState('settings');
-    } catch (error) {
-      console.error('识别失败:', error);
-      alert('识别失败，请重试');
-      setPageState('upload'); // 返回上传状态
-    } finally {
-      setIsRecognizing(false);
     }
   };
 
@@ -648,7 +601,12 @@ export default function TransposePage() {
 
     const newPoints = [...anchorPoints, { x, y }];
     setAnchorPoints(newPoints);
-    // 定位逻辑已移除，简化流程
+
+    if (pageState === 'locating_first') {
+      setPageState('locating_last');
+    } else if (pageState === 'locating_last') {
+      // 两个和弦都已选择，等待用户确认
+    }
   };
 
   // 处理标记拖拽开始
@@ -759,11 +717,11 @@ export default function TransposePage() {
     }
   };
 
-  // 重新选择第一个和弦（已移除，简化流程）
+  // 重新选择第一个和弦
   const handleRelocateFirst = () => {
     setAnchorPoints([]);
-    setChordsData(null);
-    setPageState('upload'); // 返回上传状态
+    setChordsData(null); // 清空预存和弦数据，因为可能重新上传了图片
+    setPageState('locating_first');
   };
 
   // 用户手动选择原调时，清除自动识别标记
@@ -1026,72 +984,22 @@ export default function TransposePage() {
           <div className="flex justify-center mb-3">
             <Card className="w-full max-w-2xl">
               <CardContent className="pt-6">
-                {!imageSrc ? (
-                  // 上传前：显示上传框
-                  <div
-                    className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center transition-colors cursor-pointer ${
-                      isMobile ? 'p-8' : 'p-16'
-                    } hover:border-indigo-500`}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <div className={`space-y-4 ${isMobile ? 'space-y-2' : ''}`}>
-                      <Upload className={`mx-auto text-gray-400 ${isMobile ? 'w-14 h-14' : 'w-20 h-20'}`} />
-                      <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-600 dark:text-gray-400 font-semibold`}>
-                        点击上传简谱图片
-                      </p>
-                      <p className={`text-gray-500 dark:text-gray-500 ${isMobile ? 'text-sm' : 'text-base'}`}>
-                        支持 JPG、PNG 格式
-                      </p>
-                    </div>
+                <div
+                  className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center transition-colors cursor-pointer ${
+                    isMobile ? 'p-8' : 'p-16'
+                  } hover:border-indigo-500`}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className={`space-y-4 ${isMobile ? 'space-y-2' : ''}`}>
+                    <Upload className={`mx-auto text-gray-400 ${isMobile ? 'w-14 h-14' : 'w-20 h-20'}`} />
+                    <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-600 dark:text-gray-400 font-semibold`}>
+                      点击上传简谱图片
+                    </p>
+                    <p className={`text-gray-500 dark:text-gray-500 ${isMobile ? 'text-sm' : 'text-base'}`}>
+                      支持 JPG、PNG 格式
+                    </p>
                   </div>
-                ) : (
-                  // 上传后：显示图片预览和确认按钮
-                  <>
-                    {/* 图片预览 */}
-                    <Card className="mb-1">
-                      <CardContent className="pb-2">
-                        <div className="flex justify-center">
-                          <img
-                            src={imageSrc}
-                            alt="预览"
-                            className="max-w-full max-h-[500px] object-contain rounded border"
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* 确认上传按钮 */}
-                    <div className="flex gap-2 px-1 pb-1">
-                      <Button
-                        onClick={() => {
-                          setImageSrc('');
-                          setImageKey(prev => prev + 1);
-                        }}
-                        disabled={isRecognizing}
-                        variant="outline"
-                        className="flex-1 bg-white hover:bg-gray-50"
-                        size="lg"
-                      >
-                        重新选择
-                      </Button>
-                      <Button
-                        onClick={handleConfirmUpload}
-                        disabled={isRecognizing}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700"
-                        size="lg"
-                      >
-                        {isRecognizing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            识别中...
-                          </>
-                        ) : (
-                          '确认上传'
-                        )}
-                      </Button>
-                    </div>
-                  </>
-                )}
+                </div>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1104,14 +1012,133 @@ export default function TransposePage() {
           </div>
         )}
 
-        {/* 识别中状态 */}
-        {pageState === 'uploading' && (
+        {/* 定位阶段：图片居中显示 */}
+        {mounted && (pageState === 'locating_first' || pageState === 'locating_last') && imageSrc && (
           <div className="flex justify-center mb-3">
-            <Card className="w-full max-w-2xl">
-              <CardContent className="py-16 flex flex-col items-center justify-center space-y-4">
-                <Loader2 className="w-16 h-16 text-indigo-600 animate-spin" />
-                <p className="text-xl text-gray-600 dark:text-gray-400 font-semibold">识别中...</p>
-                <p className="text-sm text-gray-500 dark:text-gray-500">预计需要20秒</p>
+            <Card className="w-full max-w-4xl !p-0 !py-0 !gap-0">
+              <CardHeader className="px-6 pt-4 pb-1 !gap-0">
+                <CardTitle className="flex items-center justify-between">
+                  <span>定位和弦分布</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleChangeImage}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    更换图片
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+
+              {/* 提示条（定位阶段） */}
+              <div className="mb-1 mx-6 bg-indigo-600 text-white px-6 py-3 rounded-lg text-center font-semibold shadow-lg animate-pulse">
+                {pageState === 'locating_first'
+                  ? (isMobile
+                      ? <><div>请点击【第一个】和弦标记</div><div className="mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
+                      : <div>请点击【第一个】和弦标记</div>)
+                  : (isMobile
+                      ? <><div>请点击【最后一个】和弦标记</div><div className="mt-1 font-normal text-red-300">完成后请点击最底部的确认按钮</div></>
+                      : <div>请点击【最后一个】和弦标记</div>)}
+              </div>
+
+              <CardContent className="px-6 pt-1 pb-6">
+                <div
+                  ref={imageContainerRef}
+                  className={`relative border-2 rounded-lg overflow-hidden transition-colors ${
+                    'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/20 cursor-crosshair'
+                  }`}
+                  style={{ touchAction: 'pan-y pinch-zoom' }}
+                  onClick={handleImageClick}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerCancel}
+                  onContextMenu={handleContextMenu}
+                >
+                  <img
+                    key={imageKey}
+                    src={imageSrc}
+                    alt="简谱图片"
+                    className="w-full h-auto"
+                    style={{ pointerEvents: 'none' }}
+                  />
+
+                  {/* 锚点标记 */}
+                  {anchorPoints.map((point, index) => {
+                    const isLongPressed = longPressedIndex === index;
+                    const isDragging = draggingIndex === index;
+                    // 使用isMobile状态，避免在JSX渲染中访问window
+                    const isCurrentlyMobile = isMobile;
+                    const scaleFactor = isCurrentlyMobile ? 0.65 : 1;
+                    const circleOuterSize = 60 * scaleFactor; // 外圆直径
+                    const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
+                    const textWidth = 236 * scaleFactor; // 文字框宽度（微调以对齐红点）
+
+                    return (
+                      <div
+                        key={index}
+                        className="absolute z-10"
+                        style={{
+                          left: `${point.x}%`,
+                          top: `${point.y}%`,
+                          // 根据图标方向调整偏移，让红点中心对齐到点击位置
+                          // point.x和point.y存储的是红点圆心的位置
+                          transform: index === 0
+                            ? `translate(-${circleOuterSize / 2}px, -50%)` // 第一个图标：向左偏移圆圈半径，让红点圆心对齐到left位置
+                            : `translate(-${textWidth + spacing + circleOuterSize / 2}px, -50%)`, // 第二个图标：圆圈在右，flex-reverse布局中圆圈中心在textWidth + spacing + circleOuterSize/2处（从左边算）
+                          cursor: isDragging ? 'grabbing' : 'grab',
+                          pointerEvents: 'auto',
+                          WebkitUserSelect: 'none',
+                          MozUserSelect: 'none',
+                          msUserSelect: 'none',
+                          userSelect: 'none',
+                          WebkitTouchCallout: 'none',
+                          touchAction: 'none',
+                        }}
+                      >
+                        {/* 使用新的CalibrationMarker组件 */}
+                        <CalibrationMarker
+                          index={index}
+                          isFirst={index === 0}
+                          isLongPressed={isLongPressed}
+                          isMobile={isMobile}
+                        />
+                      </div>
+                    );
+                  })}
+
+                </div>
+
+                {/* 确认选择按钮 */}
+                {anchorPoints.length === 2 && (
+                  <div className="mt-4 flex justify-center">
+                    {isRecognizing ? (
+                      <Button
+                        disabled
+                        size={isMobile ? 'default' : 'lg'}
+                        className={`w-full ${isMobile ? 'py-6 text-lg' : 'max-w-md'}`}
+                      >
+                        <Loader2 className={`animate-spin ${isMobile ? 'w-5 h-5 mr-3' : 'w-4 h-4 mr-2'}`} />
+                        请稍后...（大约需要20秒）
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleConfirmSelection}
+                        size={isMobile ? 'default' : 'lg'}
+                        className={`w-full ${isMobile ? 'py-6 text-lg' : 'max-w-md'}`}
+                      >
+                        确认选择
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* 定位状态提示 */}
+                {anchorPoints.length < 2 && (
+                  <div className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
+                    点击图中标记和弦的中心位置
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
