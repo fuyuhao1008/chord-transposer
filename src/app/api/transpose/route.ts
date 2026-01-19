@@ -543,7 +543,7 @@ async function annotateImage(
       const rectY = y - rectHeight / 2;
 
       // 计算重叠检测矩形（小padding，避免过度检测重叠）
-      const overlapPadding = fontSize * 0.4; // 增大padding，捕获更靠近的和弦
+      const overlapPadding = fontSize * 0.2; // 小padding，重叠检测用
       const overlapRectWidth = Math.round(textWidth + overlapPadding * 2);
       const overlapRectHeight = Math.round(textHeight + overlapPadding * 0.7);
       const overlapRectX = x - overlapRectWidth / 2;
@@ -565,12 +565,10 @@ async function annotateImage(
       });
     }
 
-    // 第二步：检测重叠并调整颜色（按位置交替变化）
-    // 1. 检测所有重叠的和弦（使用小padding的矩形进行检测）
-    const overlappingChords: number[] = []; // 存储重叠和弦的索引
+    // 第二步：检测重叠并调整颜色（优先变淡策略）
+    // 策略：如果两个和弦重叠，位置靠右的变淡，位置靠左的保持原色
 
     for (let i = 0; i < chordDrawInfos.length; i++) {
-      let hasOverlap = false;
       for (let j = 0; j < chordDrawInfos.length; j++) {
         if (i === j) continue;
 
@@ -582,25 +580,12 @@ async function annotateImage(
           current.overlapRectX, current.overlapRectY, current.overlapRectWidth, current.overlapRectHeight,
           other.overlapRectX, other.overlapRectY, other.overlapRectWidth, other.overlapRectHeight
         )) {
-          hasOverlap = true;
-          break;
+          // 重叠了，位置靠右的变淡
+          if (current.x > other.x) {
+            current.color = lightenColor(chordColor, 0.4);
+            break; // 变淡后跳出内层循环
+          }
         }
-      }
-
-      if (hasOverlap) {
-        overlappingChords.push(i);
-      }
-    }
-
-    // 2. 将重叠的和弦按照x坐标（从左到右）排序
-    overlappingChords.sort((a, b) => chordDrawInfos[a].x - chordDrawInfos[b].x);
-
-    // 3. 按排序顺序交替分配颜色（第1个原色，第2个浅色，第3个原色...）
-    for (let k = 0; k < overlappingChords.length; k++) {
-      const i = overlappingChords[k]; // 原始索引
-      if (k % 2 === 1) {
-        // 偶数索引（第2、4、6...个）使用浅色
-        chordDrawInfos[i].color = lightenColor(chordColor, 0.4);
       }
     }
 
