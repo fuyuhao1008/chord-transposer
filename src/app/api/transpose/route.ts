@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chordTransposer, Chord } from '@/lib/chord-transposer';
 import sharp from 'sharp';
-import { LLMClient, Config } from 'coze-coding-dev-sdk';
+import { LLMClient, Config, APIError } from 'coze-coding-dev-sdk';
+
+// 模型配置
+const DEFAULT_VISION_MODEL = 'doubao-seed-1-6-vision-250815';
+const FALLBACK_VISION_MODEL = 'doubao-seed-1-8-251228';
+
+function getVisionModel(): string {
+  return process.env.VISION_MODEL || DEFAULT_VISION_MODEL;
+}
+
+function getFallbackVisionModel(): string {
+  return process.env.FALLBACK_VISION_MODEL || FALLBACK_VISION_MODEL;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -394,13 +406,51 @@ function expandBBox(
 }
 
 /**
- * 调用多模态模型识别图片中的和弦和调号
+ * 调用视觉模型（支持备用模型机制）
+ */
+async function callVisionModelWithFallback(
+  client: LLMClient,
+  messages: any[],
+  modelName: string,
+  isFallback = false
+): Promise<{ response: any; modelUsed: string }> {
+  try {
+    const modelLabel = isFallback ? '备用模型' : '主模型';
+    console.log(`🤖 调用${modelLabel}: ${modelName}`);
+    
+    const response = await client.invoke(messages, {
+      model: modelName,
+      temperature: 0.2, // 低温度以获得更准确的结果
+    });
+    
+    console.log(`✅ ${modelLabel}调用成功: ${modelName}`);
+    return { response, modelUsed: modelName };
+  } catch (error) {
+    const modelLabel = isFallback ? '备用模型' : '主模型';
+    console.error(`❌ ${modelLabel}调用失败 (${modelName}):`, error instanceof APIError ? error.message : error);
+    throw error;
+  }
+}
+
+/**
+ * 调用多模态模型识别图片中的和弦和调号（支持模型切换）
  */
 async function recognizeChordsFromImage(imageBase64: string, mimeType: string, imgWidth: number, imgHeight: number): Promise<any> {
   try {
     // 初始化 LLM 客户端
     const config = new Config();
     const client = new LLMClient(config);
+
+    // 获取配置的模型
+    const primaryModel = getVisionModel();
+    const fallbackModel = getFallbackVisionModel();
+    
+    console.log('='.repeat(60));
+    console.log('🎯 和弦识别任务启动');
+    console.log(`📐 图片尺寸: ${imgWidth} x ${imgHeight}`);
+    console.log(`🤖 主模型配置: ${primaryModel}`);
+    console.log(`🔄 备用模型配置: ${fallbackModel}`);
+    console.log('='.repeat(60));
 
     // 构造优化的提示词（绝对像素坐标 + 中心点定位）
     const systemPrompt = `你是一个专业的简谱和弦 OCR 定位系统。你的任务是从一张简谱图片中识别调号，并定位所有和弦标记的精确像素位置。
@@ -508,11 +558,31 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
       },
     ];
 
-    // 调用视觉模型
-    const response = await client.invoke(messages, {
-      model: 'doubao-seed-1-6-vision-250815',
-      temperature: 0.2, // 低温度以获得更准确的结果
-    });
+    // 调用视觉模型（主模型优先，失败则使用备用模型）
+    let response: any;
+    let modelUsed: string;
+    
+    try {
+      // 尝试主模型
+      const result = await callVisionModelWithFallback(client, messages, primaryModel, false);
+      response = result.response;
+      modelUsed = result.modelUsed;
+    } catch (primaryError) {
+      console.warn(`⚠️ 主模型 ${primaryModel} 调用失败，尝试备用模型 ${fallbackModel}`);
+      
+      try {
+        // 尝试备用模型
+        const result = await callVisionModelWithFallback(client, messages, fallbackModel, true);
+        response = result.response;
+        modelUsed = result.modelUsed;
+        console.log(`✅ 备用模型切换成功`);
+      } catch (fallbackError) {
+        console.error(`💔 备用模型也失败了，放弃识别`);
+        throw new Error(`主模型和备用模型均调用失败: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+      }
+    }
+
+    console.log(`🎯 实际使用的模型: ${modelUsed}`);
 
     // 解析 JSON 响应
     const content = response.content.trim();
@@ -526,6 +596,9 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
 
     // 解析 JSON
     const result = JSON.parse(jsonStr);
+    
+    // 在返回结果中添加使用的模型信息
+    result._modelUsed = modelUsed;
 
     console.log('识别结果:', result);
 
