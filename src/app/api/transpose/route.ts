@@ -354,7 +354,7 @@ cx∈[0,1000], cy∈[0,1000]
 ❗ 只返回JSON，无任何解释文字或Markdown`;
 
 
-    const userPrompt = '请分析这张简谱图片，识别调号和所有和弦标记，以JSON格式返回。特别注意：必须返回每个和弦的真实像素中心点坐标（cx, cy），坐标范围必须是 0-' + imgWidth + '（x轴）和 0-' + imgHeight + '（y轴）。';
+    const userPrompt = '请分析这张简谱图片，识别调号和所有和弦标记，以JSON格式返回。坐标使用千分比（0-1000）。';
 
     // 构造消息（多模态）
     const messages = [
@@ -380,7 +380,7 @@ cx∈[0,1000], cy∈[0,1000]
     // 调用视觉模型
     const response = await client.invoke(messages, {
       model: 'doubao-seed-1-6-vision-250815',
-      temperature: 0.3, // 提升温度以加快处理速度，同时保持较高准确率
+      temperature: 0.2, // 低温度以获得更准确的结果
     });
 
     // 解析 JSON 响应
@@ -543,7 +543,7 @@ async function annotateImage(
       const rectY = y - rectHeight / 2;
 
       // 计算重叠检测矩形（小padding，避免过度检测重叠）
-      const overlapPadding = fontSize * 0.2; // 小padding，重叠检测用
+      const overlapPadding = fontSize * 0.4; // 增大padding，捕获更靠近的和弦
       const overlapRectWidth = Math.round(textWidth + overlapPadding * 2);
       const overlapRectHeight = Math.round(textHeight + overlapPadding * 0.7);
       const overlapRectX = x - overlapRectWidth / 2;
@@ -627,7 +627,7 @@ async function annotateImage(
 
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
-      const markFontSize = Math.floor(Math.sqrt(image.width) * 1.8); // 平方根比例，确保字号平滑增长
+      const markFontSize = Math.floor(image.width * 0.1); // 宽度的10%
       const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
