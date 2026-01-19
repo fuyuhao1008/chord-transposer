@@ -565,27 +565,62 @@ async function annotateImage(
       });
     }
 
-    // 第二步：检测重叠并调整颜色（优先变淡策略）
-    // 策略：如果两个和弦重叠，位置靠右的变淡，位置靠左的保持原色
+    // 第二步：检测重叠并调整颜色（图着色算法，确保交替）
+    // 策略：构建重叠图，对每个连通分量从左到右交替着色
 
+    // 1. 构建邻接表
+    const adjacency: number[][] = Array.from({ length: chordDrawInfos.length }, () => []);
     for (let i = 0; i < chordDrawInfos.length; i++) {
-      for (let j = 0; j < chordDrawInfos.length; j++) {
-        if (i === j) continue;
-
-        const current = chordDrawInfos[i];
-        const other = chordDrawInfos[j];
-
-        // 使用小padding的重叠检测矩形来判断是否重叠
+      for (let j = i + 1; j < chordDrawInfos.length; j++) {
+        const a = chordDrawInfos[i];
+        const b = chordDrawInfos[j];
         if (rectanglesOverlap(
-          current.overlapRectX, current.overlapRectY, current.overlapRectWidth, current.overlapRectHeight,
-          other.overlapRectX, other.overlapRectY, other.overlapRectWidth, other.overlapRectHeight
+          a.overlapRectX, a.overlapRectY, a.overlapRectWidth, a.overlapRectHeight,
+          b.overlapRectX, b.overlapRectY, b.overlapRectWidth, b.overlapRectHeight
         )) {
-          // 重叠了，位置靠右的变淡
-          if (current.x > other.x) {
-            current.color = lightenColor(chordColor, 0.4);
-            break; // 变淡后跳出内层循环
+          adjacency[i].push(j);
+          adjacency[j].push(i);
+        }
+      }
+    }
+
+    // 2. 找出每个连通分量并从左到右交替着色
+    const visited = new Set<number>();
+    const colorAssignments: boolean[] = Array(chordDrawInfos.length).fill(false); // false=原色, true=浅色
+
+    for (let start = 0; start < chordDrawInfos.length; start++) {
+      if (visited.has(start)) continue;
+
+      // BFS收集整个连通分量
+      const component: number[] = [];
+      const queue: number[] = [start];
+      visited.add(start);
+
+      while (queue.length > 0) {
+        const u = queue.shift()!;
+        component.push(u);
+
+        for (const v of adjacency[u]) {
+          if (!visited.has(v)) {
+            visited.add(v);
+            queue.push(v);
           }
         }
+      }
+
+      // 按x坐标排序（从左到右）
+      component.sort((a, b) => chordDrawInfos[a].x - chordDrawInfos[b].x);
+
+      // 交替着色：第1个原色，第2个浅色，第3个原色...
+      for (let k = 0; k < component.length; k++) {
+        colorAssignments[component[k]] = (k % 2 === 1);
+      }
+    }
+
+    // 3. 应用颜色
+    for (let i = 0; i < chordDrawInfos.length; i++) {
+      if (colorAssignments[i]) {
+        chordDrawInfos[i].color = lightenColor(chordColor, 0.4);
       }
     }
 
