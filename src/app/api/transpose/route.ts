@@ -1088,7 +1088,7 @@ async function annotateImage(
       ctx.fillText(info.chordText, info.x, info.y);
     }
 
-    // 在左上角绘制转调标记
+    // 在左上角绘制转调标记（分色显示）
     if (originalKey && targetKey) {
       const markFontSize = Math.floor(image.width * 0.04); // 宽度的4%
       const arrow = ' → '; // 箭头
