@@ -657,16 +657,19 @@ async function annotateImage(
       ctx.fillText(info.chordText, info.x, info.y);
     }
 
-    // 在左上角绘制转调标记（蓝色）
+    // 在左上角绘制转调标记
     if (originalKey && targetKey) {
-      const markFontSize = Math.floor(image.width * 0.1); // 宽度的10%
-      const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
+      const markFontSize = Math.floor(image.width * 0.025); // 宽度的2.5%
+      const arrow = ' → '; // 箭头
       const markPadding = 15;
 
       // 计算文本尺寸
       ctx.font = `normal ${markFontSize}px Georgia, serif`; // Georgia字体，不加粗
-      const markMetrics = ctx.measureText(markText);
-      const markWidth = markMetrics.width;
+      const originalMetrics = ctx.measureText(originalKey);
+      const arrowMetrics = ctx.measureText(arrow);
+      const targetMetrics = ctx.measureText(targetKey);
+
+      const totalWidth = originalMetrics.width + arrowMetrics.width + targetMetrics.width;
       const markHeight = markFontSize * 1.2;
 
       // 计算左上角位置（留出边距）
@@ -678,15 +681,25 @@ async function annotateImage(
       ctx.fillRect(
         markX - markPadding / 2,
         markY - markHeight - markPadding / 2,
-        markWidth + markPadding * 1.5,
+        totalWidth + markPadding * 1.5,
         markHeight + markPadding
       );
 
-      // 绘制蓝色文字（左对齐）
-      ctx.fillStyle = '#2563EB'; // 蓝色
+      // 设置文本绘制属性
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(markText, markX, markY - markHeight);
+
+      // 绘制原调（黑色）
+      ctx.fillStyle = '#000000'; // 黑色
+      ctx.fillText(originalKey, markX, markY - markHeight);
+
+      // 绘制箭头（黑色）
+      ctx.fillStyle = '#000000'; // 黑色
+      ctx.fillText(arrow, markX + originalMetrics.width, markY - markHeight);
+
+      // 绘制目标调（蓝色）
+      ctx.fillStyle = '#2563EB'; // 蓝色
+      ctx.fillText(targetKey, markX + originalMetrics.width + arrowMetrics.width, markY - markHeight);
     }
 
     // 转换为 Buffer
