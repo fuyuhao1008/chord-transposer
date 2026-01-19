@@ -659,7 +659,7 @@ async function annotateImage(
 
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
-      const markFontSize = Math.floor(image.width * 0.04); // 宽度的4%
+      const markFontSize = Math.floor(image.width * 0.1); // 宽度的10%
       const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
