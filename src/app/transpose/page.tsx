@@ -1339,9 +1339,9 @@ export default function TransposePage() {
                                 variant="outline"
                                 onClick={() => {
                                   const newSize = (fontSize || 20) + 6;
-                                  setFontSize(newSize < 72 ? newSize : 72);
+                                  setFontSize(newSize < 88 ? newSize : 88);
                                 }}
-                                disabled={isAdjusting || (fontSize !== null && fontSize >= 72)}
+                                disabled={isAdjusting || (fontSize !== null && fontSize >= 88)}
                               >
                                 <span className="text-lg font-bold">+</span>
                               </Button>

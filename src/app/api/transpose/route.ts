@@ -617,7 +617,7 @@ async function annotateImage(
     ctx.drawImage(image, 0, 0);
 
     // 计算字体大小：如果提供了自定义值则使用，否则动态计算
-    const fontSize = customFontSize || Math.max(16, Math.min(28, Math.round(image.width / 45)));
+    const fontSize = customFontSize || Math.max(16, Math.min(88, Math.round(image.width / 45)));
 
     // 设置字体（用于测量文本）
     ctx.font = `normal ${fontSize}px Georgia, serif`;
