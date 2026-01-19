@@ -549,11 +549,13 @@ async function annotateImage(
       // 计算和弦文本
       const chordText = chordTransposer.chordToString(chord);
 
-      // 测量文本宽度和高度
+      // 测量文本宽度和高度（使用精确的Canvas API）
       const textMetrics = ctx.measureText(chordText);
       const textWidth = textMetrics.width;
-      // 估算文本高度（更精确）
-      const textHeight = fontSize * 1.1;
+      // 使用精确的文本高度（actualBoundingBoxAscent + actualBoundingBoxDescent）
+      const actualTextHeight = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
+      // 如果精确高度不可用，降级到估算值
+      const textHeight = actualTextHeight || (fontSize * 1.1);
 
       // 计算实际绘制矩形（大padding，确保完全覆盖原和弦）
       const drawPadding = fontSize * 0.8; // 大padding，实际绘制用
@@ -659,7 +661,7 @@ async function annotateImage(
 
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
-      const markFontSize = Math.floor(image.width * 0.1); // 宽度的10%
+      const markFontSize = Math.floor(image.width * 0.02); // 宽度的2%
       const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
