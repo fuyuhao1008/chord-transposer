@@ -161,14 +161,27 @@ export async function POST(request: NextRequest) {
 
     // 如果只是识别原调（同时识别和弦，复用于转调）
     if (onlyRecognizeKey === 'true') {
-      // 将图片转换为 base64
-      const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
-      const imageBase64 = `data:${imageFile.type};base64,${imageBuffer.toString('base64')}`;
+      // 将图片转换为 buffer
+      const originalImageBuffer = Buffer.from(await imageFile.arrayBuffer());
 
-      // 获取图片尺寸
-      const imageInfo = await sharp(imageBuffer).metadata();
-      const imgWidth = imageInfo.width || 800;
-      const imgHeight = imageInfo.height || 1000;
+      // 获取原始图片尺寸
+      const originalMetadata = await sharp(originalImageBuffer).metadata();
+      const originalWidth = originalMetadata.width || 800;
+      const originalHeight = originalMetadata.height || 1000;
+
+      // 智能放大低分辨率图片（用于AI识别）
+      const upscaledImage = await upscaleImageIfNeeded(originalImageBuffer);
+      const imgWidth = upscaledImage.width;
+      const imgHeight = upscaledImage.height;
+
+      if (upscaledImage.wasUpscaled) {
+        console.log(`✅ AI识别使用放大图片: ${imgWidth}x${imgHeight}（原始: ${originalWidth}x${originalHeight}）`);
+      }
+
+      // 将图片转换为 base64
+      const imageBase64 = `data:${imageFile.type};base64,${upscaledImage.buffer.toString('base64')}`;
+
+      console.log('图片尺寸:', imgWidth, 'x', imgHeight);
 
       // 识别原调和和弦（一次调用，返回完整结果）
       const recognitionResult = await recognizeChordsFromImage(imageBase64, imageFile.type, imgWidth, imgHeight);
@@ -203,15 +216,27 @@ export async function POST(request: NextRequest) {
       console.log('用户指定的锚点:', { first: userAnchorFirst, last: userAnchorLast });
     }
 
-    // 将图片转换为 base64
-    const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
-    const imageBase64 = `data:${imageFile.type};base64,${imageBuffer.toString('base64')}`;
+    // 保存原始图片buffer（用于最终标注）
+    const originalImageBuffer = Buffer.from(await imageFile.arrayBuffer());
 
-    // 获取图片尺寸（用于坐标转换和传递给AI）
-    const imageInfo = await sharp(imageBuffer).metadata();
-    const imgWidth = imageInfo.width || 800;
-    const imgHeight = imageInfo.height || 1000;
+    // 获取原始图片尺寸
+    const originalMetadata = await sharp(originalImageBuffer).metadata();
+    const originalWidth = originalMetadata.width || 800;
+    const originalHeight = originalMetadata.height || 1000;
+
+    // 智能放大低分辨率图片（用于AI识别）
+    const upscaledImage = await upscaleImageIfNeeded(originalImageBuffer);
+    const imgWidth = upscaledImage.width;
+    const imgHeight = upscaledImage.height;
+
+    if (upscaledImage.wasUpscaled) {
+      console.log(`✅ AI识别使用放大图片: ${imgWidth}x${imgHeight}（原始: ${originalWidth}x${originalHeight}）`);
+    }
+
     console.log('图片尺寸:', imgWidth, 'x', imgHeight);
+
+    // 将图片转换为 base64
+    const imageBase64 = `data:${imageFile.type};base64,${upscaledImage.buffer.toString('base64')}`;
 
     // 识别和弦：如果前端传递了预存数据，直接使用；否则调用大模型
     let recognitionResult: any;
@@ -232,6 +257,11 @@ export async function POST(request: NextRequest) {
     if (!recognitionResult) {
       return NextResponse.json({ error: '和弦识别失败' }, { status: 500 });
     }
+
+    // 计算缩放比例（如果图片被放大了）
+    const scaleX = originalWidth / imgWidth;
+    const scaleY = originalHeight / imgHeight;
+    const wasUpscaled = upscaledImage.wasUpscaled;
 
     // 确定原调（需要用于OCR修正）
     let originalKey = originalKeyInput;
@@ -470,8 +500,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 生成标注后的图片（使用canvas）
+    // 注意：使用原始图片进行标注，因为百分比坐标是相对的，会自动正确映射
     const annotateResult = await annotateImage(
-      imageBuffer,
+      originalImageBuffer,
       transposeResult,
       chordColor,
       fontSize,
@@ -527,6 +558,67 @@ function expandBBox(
     y1: Math.max(0, Math.min(imgHeight, Math.round(cy - charHeight / 2 - padding))),
     x2: Math.max(0, Math.min(imgWidth, Math.round(cx + textWidth / 2 + padding))),
     y2: Math.max(0, Math.min(imgHeight, Math.round(cy + charHeight / 2 + padding))),
+  };
+}
+
+/**
+ * 智能放大低分辨率图片
+ * 如果宽度或高度小于1200，等比例放大到至少1200
+ * @param imageBuffer 原始图片buffer
+ * @returns 处理后的图片buffer和尺寸信息
+ */
+async function upscaleImageIfNeeded(imageBuffer: Buffer): Promise<{ buffer: Buffer; width: number; height: number; wasUpscaled: boolean }> {
+  const metadata = await sharp(imageBuffer).metadata();
+  const originalWidth = metadata.width || 800;
+  const originalHeight = metadata.height || 1000;
+
+  const MIN_SIZE = 1200;
+
+  // 检查是否需要放大
+  let needsUpscale = false;
+  let targetWidth = originalWidth;
+  let targetHeight = originalHeight;
+
+  if (originalWidth >= MIN_SIZE && originalHeight >= MIN_SIZE) {
+    // 两个维度都满足，不需要放大
+    return { buffer: imageBuffer, width: originalWidth, height: originalHeight, wasUpscaled: false };
+  }
+
+  // 计算目标尺寸
+  if (originalWidth < MIN_SIZE && originalHeight < MIN_SIZE) {
+    // 两个都小于1200，将较小的那个放大到1200
+    if (originalWidth < originalHeight) {
+      targetWidth = MIN_SIZE;
+      targetHeight = Math.round((MIN_SIZE / originalWidth) * originalHeight);
+    } else {
+      targetHeight = MIN_SIZE;
+      targetWidth = Math.round((MIN_SIZE / originalHeight) * originalWidth);
+    }
+  } else if (originalWidth < MIN_SIZE) {
+    // 只有宽度小于1200，放大宽度到1200，高度等比例放大
+    targetWidth = MIN_SIZE;
+    targetHeight = Math.round((MIN_SIZE / originalWidth) * originalHeight);
+  } else {
+    // 只有高度小于1200，放大高度到1200，宽度等比例放大
+    targetHeight = MIN_SIZE;
+    targetWidth = Math.round((MIN_SIZE / originalHeight) * originalWidth);
+  }
+
+  console.log(`🔧 图片放大: ${originalWidth}x${originalHeight} → ${targetWidth}x${targetHeight}`);
+
+  // 使用高质量缩放算法放大图片
+  const upscaledBuffer = await sharp(imageBuffer)
+    .resize(targetWidth, targetHeight, {
+      kernel: sharp.kernel.lanczos3, // 使用Lanczos3算法获得更好的质量
+      withoutEnlargement: false,
+    })
+    .toBuffer();
+
+  return {
+    buffer: upscaledBuffer,
+    width: targetWidth,
+    height: targetHeight,
+    wasUpscaled: true,
   };
 }
 
