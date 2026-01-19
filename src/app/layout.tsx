@@ -61,7 +61,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body className="antialiased" suppressHydrationWarning>
+      <body className="antialiased">
         <style dangerouslySetInnerHTML={{
           __html: `
             .footer-heart {
