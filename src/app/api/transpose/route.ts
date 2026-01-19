@@ -549,40 +549,32 @@ async function annotateImage(
       // 计算和弦文本
       const chordText = chordTransposer.chordToString(chord);
 
-      // 测量文本宽度和高度（使用精确的Canvas API）
+      // 测量文本宽度和高度
       const textMetrics = ctx.measureText(chordText);
       const textWidth = textMetrics.width;
-      // 使用精确的文本高度（actualBoundingBoxAscent + actualBoundingBoxDescent）
-      const actualTextHeight = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
-      // 如果精确高度不可用，降级到估算值
-      const textHeight = actualTextHeight || (fontSize * 1.1);
+      // 估算文本高度（更精确）
+      const textHeight = fontSize * 1.1;
 
       // 计算实际绘制矩形（大padding，确保完全覆盖原和弦）
       const drawPadding = fontSize * 0.8; // 大padding，实际绘制用
       const rectWidth = Math.round(textWidth + drawPadding * 2);
       const rectHeight = Math.round(textHeight + drawPadding * 0.63); // 纵向padding减少10%
       const rectX = x - rectWidth / 2;
-      const rectY = y - rectHeight / 2; // 以y为中心
-
-      // 微调：动态向上偏移，y越大（越往下），向上偏移越多
-      // offset = y坐标百分比 * 图片高度 * 系数
-      const yRatio = chord.y / 100; // 0-1之间，表示y在图片中的相对位置
-      const yOffset = yRatio * image.height * 0.05; // 向上偏移量为y坐标的5%
-      const adjustedRectY = rectY - yOffset; // 向上偏移（减去）
+      const rectY = y - rectHeight / 2;
 
       // 计算重叠检测矩形（小padding，避免过度检测重叠）
       const overlapPadding = fontSize * 0.2; // 小padding，重叠检测用
       const overlapRectWidth = Math.round(textWidth + overlapPadding * 2);
       const overlapRectHeight = Math.round(textHeight + overlapPadding * 0.7);
       const overlapRectX = x - overlapRectWidth / 2;
-      const overlapRectY = y - overlapRectHeight / 2 - yOffset;
+      const overlapRectY = y - overlapRectHeight / 2;
 
       chordDrawInfos.push({
         chordText,
         x,
         y,
         rectX,
-        rectY: adjustedRectY, // 使用调整后的rectY（向下偏移）
+        rectY,
         rectWidth,
         rectHeight,
         overlapRectX,
@@ -660,16 +652,14 @@ async function annotateImage(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const info of chordDrawInfos) {
-      // 绘制和弦文本（使用 middle 基线）
-      // 文本绘制在背景框的中心位置
-      const centerY = info.rectY + info.rectHeight / 2;
+      // 绘制和弦文本（使用 middle 基线，确保文本中心对齐坐标点）
       ctx.fillStyle = info.color; // 使用调整后的颜色（可能是原色或调淡色）
-      ctx.fillText(info.chordText, info.x, centerY);
+      ctx.fillText(info.chordText, info.x, info.y);
     }
 
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
-      const markFontSize = Math.floor(image.width * 0.04); // 宽度的4%
+      const markFontSize = Math.floor(image.width * 0.1); // 宽度的10%
       const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
