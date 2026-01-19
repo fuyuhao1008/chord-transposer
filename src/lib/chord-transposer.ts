@@ -306,6 +306,21 @@ class ChordTransposer {
     }
     console.log(`  上标转换后: "${trimmed}"`);
 
+    // 预处理：和弦性质中的括号（如 D(add2) → Dadd2, Em7(b5) → Em7b5）
+    // 先匹配根音，再检查性质部分是否有括号
+    const rootMatch = trimmed.match(/^([#b]?[A-G])(.*)$/i);
+    if (rootMatch) {
+      const [, rootPart, qualityPart] = rootMatch;
+      // 检查性质部分是否有括号（如(add2), (b5)）
+      const qualityParenthesesMatch = qualityPart.match(/^\(([^)]+)\)(.*)$/);
+      if (qualityParenthesesMatch) {
+        const [, qualityInParentheses, suffixAfterQuality] = qualityParenthesesMatch;
+        // 去除性质中的括号，保留可能存在的斜杠部分
+        trimmed = rootPart + qualityInParentheses + suffixAfterQuality;
+        console.log(`  去除性质中的括号: "${trimmed}"`);
+      }
+    }
+
     // 检测是否有括号（必须同时有左右括号）
     const hasParentheses = trimmed.startsWith('(') && trimmed.endsWith(')');
 
