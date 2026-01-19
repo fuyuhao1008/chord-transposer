@@ -9,8 +9,7 @@ export async function POST(request: NextRequest) {
     const imageFile = formData.get('image') as File;
     const targetKey = formData.get('targetKey') as string;
     const originalKeyInput = formData.get('originalKey') as string;
-    const anchorFirstStr = formData.get('anchorFirst') as string;
-    const anchorLastStr = formData.get('anchorLast') as string;
+
     const directionStr = formData.get('direction') as string;
     const semitonesStr = formData.get('semitones') as string;
     const onlyRecognizeKey = formData.get('onlyRecognizeKey') as string;
@@ -55,18 +54,7 @@ export async function POST(request: NextRequest) {
       semitones = dir * parseFloat(semitonesStr);
     }
 
-    console.log('转调设置:', { targetKey, direction: directionStr, semitonesInput: semitonesStr, finalSemitones: semitones });
 
-    // 解析用户指定的锚点（可选）
-    let userAnchorFirst = null;
-    let userAnchorLast = null;
-    if (anchorFirstStr && anchorLastStr) {
-      userAnchorFirst = JSON.parse(anchorFirstStr);
-      userAnchorLast = JSON.parse(anchorLastStr);
-      console.log('用户指定的锚点:', { first: userAnchorFirst, last: userAnchorLast });
-    }
-
-    // 将图片转换为 base64
     const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
     const imageBase64 = `data:${imageFile.type};base64,${imageBuffer.toString('base64')}`;
 
@@ -113,15 +101,15 @@ export async function POST(request: NextRequest) {
     console.log('原始数据:', JSON.stringify(recognitionResult, null, 2));
     console.log('中心点数量:', rawCenters.length);
 
-    // 收集所有有效的中心点坐标（像素坐标）
+    // 收集所有有效的中心点坐标（AI返回的是0-1000的千分比坐标）
     const validCenters = rawCenters.filter(
       (c: any) => typeof c.cx === 'number' && typeof c.cy === 'number' && !isNaN(c.cx) && !isNaN(c.cy) &&
-                   c.cx >= 0 && c.cx <= imgWidth && c.cy >= 0 && c.cy <= imgHeight
+                   c.cx >= 0 && c.cx <= 1000 && c.cy >= 0 && c.cy <= 1000  // 千分比范围：0-1000
     );
 
-    // 去重和异常值检测（基于像素坐标）
+    // 去重和异常值检测（基于千分比坐标）
     const dedupedCenters: any[] = [];
-    const pixelDistanceThreshold = Math.max(imgWidth, imgHeight) * 0.01; // 1%的最大边长作为阈值（避免误删）
+    const distanceThreshold = 10; // 千分比空间的阈值：代表1%的差异
 
     // 检测异常Y值：计算所有和弦的Y坐标中位数
     const yCoordinates = validCenters.map((c: any) => c.cy);
@@ -150,9 +138,9 @@ export async function POST(request: NextRequest) {
         const dy = center.cy - existing.cy;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance < pixelDistanceThreshold) {
+        if (distance < distanceThreshold) {
           isDuplicate = true;
-          console.log(`⚠️ 检测到重复和弦: ${center.text} 与 ${existing.text} 距离 ${distance.toFixed(1)}px，跳过`);
+          console.log(`⚠️ 检测到重复和弦: ${center.text} 与 ${existing.text} 距离 ${distance.toFixed(1)}，跳过`);
           break;
         }
       }
@@ -164,7 +152,7 @@ export async function POST(request: NextRequest) {
 
     // 显式排序：按Y坐标优先（从上到下），X坐标次之（从左到右）
     dedupedCenters.sort((a: any, b: any) => {
-      if (Math.abs(a.cy - b.cy) < 30) { // Y坐标相差小于30像素，认为是同一行
+      if (Math.abs(a.cy - b.cy) < 3) { // Y坐标相差小于3（千分比），认为是同一行
         return a.cx - b.cx; // 同一行按X排序
       }
       return a.cy - b.cy; // 不同行按Y排序
@@ -177,112 +165,39 @@ export async function POST(request: NextRequest) {
     console.log('Y坐标中位数:', medianY.toFixed(1), '标准差:', yStdDev.toFixed(1));
 
     if (dedupedCenters.length > 0) {
-      if (userAnchorFirst && userAnchorLast) {
-        // ========== 用户指定锚点映射（简单版本） ==========
-        console.log('========== 使用用户指定锚点映射 ==========');
-        console.log('用户指定的第一个和弦位置（百分比）:', userAnchorFirst);
-        console.log('用户指定的最后一个和弦位置（百分比）:', userAnchorLast);
+      console.log('========== 坐标转换 ==========');
+      console.log('AI返回的是0-1000的千分比坐标，直接除以10转换为百分比坐标');
 
-        // AI 返回的第一个和最后一个和弦（像素坐标）
-        const aiFirst = dedupedCenters[0];
-        const aiLast = dedupedCenters[dedupedCenters.length - 1];
+      // 对每个和弦应用坐标转换
+      for (let i = 0; i < dedupedCenters.length; i++) {
+        const rawCenter = dedupedCenters[i];
 
-        console.log('AI 返回的第一个和弦:', { cx: aiFirst.cx, cy: aiFirst.cy, text: aiFirst.text });
-        console.log('AI 返回的最后一个和弦:', { cx: aiLast.cx, cy: aiLast.cy, text: aiLast.text });
+        console.log(`\n========== 处理中心点 ${i + 1}: ${rawCenter.text} ==========`);
+        console.log('AI返回的原始千分比坐标:', { cx: rawCenter.cx, cy: rawCenter.cy });
 
-        // 对每个和弦应用锚点映射
-        for (let i = 0; i < dedupedCenters.length; i++) {
-          const rawCenter = dedupedCenters[i];
+        // 直接除以10转换为百分比坐标（千分比 -> 百分比）
+        const x = rawCenter.cx / 10;
+        const y = rawCenter.cy / 10;
 
-          console.log(`\n========== 处理中心点 ${i + 1}: ${rawCenter.text} ==========`);
-          console.log('AI返回的原始坐标:', { cx: rawCenter.cx, cy: rawCenter.cy });
-
-          // 计算在 AI 空间中的比例位置（0-1）
-          const aiRatioX = (rawCenter.cx - aiFirst.cx) / (aiLast.cx - aiFirst.cx || 1);
-          const aiRatioY = (rawCenter.cy - aiFirst.cy) / (aiLast.cy - aiFirst.cy || 1);
-
-          console.log('AI 空间比例:', { ratioX: aiRatioX.toFixed(3), ratioY: aiRatioY.toFixed(3) });
-
-          // 映射到用户指定的空间
-          const x = userAnchorFirst.x + aiRatioX * (userAnchorLast.x - userAnchorFirst.x);
-          const y = userAnchorFirst.y + aiRatioY * (userAnchorLast.y - userAnchorFirst.y);
-
-          console.log('最终百分比坐标:', { x: x.toFixed(1), y: y.toFixed(1) });
-
-          // 根据原调修正AI识别的和弦（修正遗漏的升降号）
-          const correctedChordText = chordTransposer.correctChordByKey(rawCenter.text, originalKey);
-          if (correctedChordText !== rawCenter.text) {
-            console.log(`  ✅ OCR修正: ${rawCenter.text} → ${correctedChordText}`);
-          }
-
-          const parsed = chordTransposer.parseChord(correctedChordText);
-          if (parsed) {
-            chords.push({
-              ...parsed,
-              x: x,
-              y: y,
-            });
-            console.log(`✓ 解析成功，添加到和弦列表 (索引 ${chords.length - 1})`);
-          } else {
-            console.warn(`✗ 解析失败: ${rawCenter.text}`);
-          }
-        }
-      } else {
-        // ========== 自动归一化映射 ==========
-        // 计算 AI 输出的边界盒
-        const minX = Math.min(...dedupedCenters.map((c: any) => c.cx));
-        const maxX = Math.max(...dedupedCenters.map((c: any) => c.cx));
-        const minY = Math.min(...dedupedCenters.map((c: any) => c.cy));
-        const maxY = Math.max(...dedupedCenters.map((c: any) => c.cy));
-
-        console.log('========== 坐标归一化 ==========');
-        console.log('AI 输出边界盒:', { minX, maxX, minY, maxY });
-        console.log('图片尺寸:', { width: imgWidth, height: imgHeight });
-
-        // 计算缩放因子（线性映射到完整画布）
-        const rangeX = maxX - minX || 1; // 避免除以0
-        const rangeY = maxY - minY || 1;
-        const scaleX = imgWidth / rangeX;
-        const scaleY = imgHeight / rangeY;
-
-        console.log('缩放因子:', { scaleX: scaleX.toFixed(2), scaleY: scaleY.toFixed(2) });
-
-        // 对每个和弦应用坐标归一化
-        for (let i = 0; i < dedupedCenters.length; i++) {
-          const rawCenter = dedupedCenters[i];
-
-          console.log(`\n========== 处理中心点 ${i + 1}: ${rawCenter.text} ==========`);
-          console.log('AI返回的原始坐标:', { cx: rawCenter.cx, cy: rawCenter.cy });
-
-          // 线性映射到真实像素空间
-          const realX = (rawCenter.cx - minX) * scaleX;
-          const realY = (rawCenter.cy - minY) * scaleY;
-
-          console.log('映射后的真实像素:', { realX: realX.toFixed(1), realY: realY.toFixed(1) });
+        console.log('转换后的百分比坐标:', { x: x.toFixed(1), y: y.toFixed(1) });
 
           // 转换为百分比
-          const x = (realX / imgWidth) * 100;
-          const y = (realY / imgHeight) * 100;
+        // 根据原调修正AI识别的和弦（修正遗漏的升降号）
+        const correctedChordText = chordTransposer.correctChordByKey(rawCenter.text, originalKey);
+        if (correctedChordText !== rawCenter.text) {
+          console.log(`  ✅ OCR修正: ${rawCenter.text} → ${correctedChordText}`);
+        }
 
-          console.log('最终百分比坐标:', { x: x.toFixed(1), y: y.toFixed(1) });
-
-          // 根据原调修正AI识别的和弦（修正遗漏的升降号）
-          const correctedChordText = chordTransposer.correctChordByKey(rawCenter.text, originalKey);
-          if (correctedChordText !== rawCenter.text) {
-            console.log(`  ✅ OCR修正: ${rawCenter.text} → ${correctedChordText}`);
-          }
-
-          const parsed = chordTransposer.parseChord(correctedChordText);
-          if (parsed) {
-            chords.push({
-              ...parsed,
-              x: x,
-              y: y,
-            });
-            console.log(`✓ 解析成功，添加到和弦列表 (索引 ${chords.length - 1})`);
-          } else {
-            console.warn(`✗ 解析失败: ${rawCenter.text}`);
-          }
+        const parsed = chordTransposer.parseChord(correctedChordText);
+        if (parsed) {
+          chords.push({
+            ...parsed,
+            x: x,
+            y: y,
+          });
+          console.log(`✓ 解析成功，添加到和弦列表 (索引 ${chords.length - 1})`);
+        } else {
+          console.warn(`✗ 解析失败: ${rawCenter.text}`);
         }
       }
     } else {
