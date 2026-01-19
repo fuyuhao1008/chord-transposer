@@ -608,7 +608,7 @@ async function annotateImage(
         continue;
       }
 
-      if (chord.x < 0 || chord.x > 100 || chord.y < 0 || chord.y > 100) {
+      if (chord.x < 0 || chord.y < 0) {
         continue;
       }
 
