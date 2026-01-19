@@ -2,7 +2,36 @@
 
 ## 概述
 
-系统支持通过环境变量配置视觉模型，并采用**智能模型选择机制**。当主模型不可用时，系统会自动从可用模型列表中选择最佳备用模型，优先选择**纯视觉模型**以保证识别准确性。
+系统支持通过环境变量配置视觉模型，并采用**配置化的智能模型选择机制**。每个模型都明确定义了类型和优先级，系统会自动从可用模型列表中选择最佳备用模型，优先选择**纯视觉模型**以保证识别准确性。
+
+## 配置化的模型管理
+
+### 模型配置结构
+
+每个模型都配置了以下属性：
+
+```typescript
+interface VisionModelConfig {
+  id: string;      // 模型ID
+  name: string;    // 模型名称
+  type: 'pure-vision' | 'multimodal';  // 模型类型
+  priority: number; // 优先级
+}
+```
+
+### 可用的视觉模型配置
+
+| 模型ID | 名称 | 类型 | 优先级 | 说明 |
+|--------|------|------|--------|------|
+| `doubao-seed-1-6-vision-250815` | 纯视觉模型 | pure-vision | 1 | 专为图像识别优化，推荐 |
+| `doubao-seed-1-8-251228` | 多模态Agent | multimodal | 2 | 支持视觉，推荐作为备用 |
+| `doubao-seed-1-6-251015` | 平衡性能 | multimodal | 2 | 支持视觉，可作为备选 |
+
+**优势：**
+- ✅ **非硬编码**：模型属性通过配置定义，易于维护
+- ✅ **灵活扩展**：添加新模型只需在配置列表中添加
+- ✅ **类型安全**：TypeScript 类型检查确保正确性
+- ✅ **易于理解**：模型信息一目了然
 
 ## 智能模型选择机制
 
@@ -80,6 +109,7 @@ VISION_MODEL=doubao-seed-1-6-vision-250815
 ============================================================
 🎯 和弦识别任务启动
 📐 图片尺寸: 1920 x 1080
+📋 使用默认纯视觉模型: doubao-seed-1-6-vision-250815 (纯视觉模型)
 🤖 主模型: doubao-seed-1-6-vision-250815
 🤖 可用视觉模型: 3 个
 ============================================================
@@ -90,12 +120,13 @@ VISION_MODEL=doubao-seed-1-6-vision-250815
 📊 模型类型: 纯视觉模型 ✓
 ```
 
-### 自动切换到备用纯视觉模型
+### 自动切换到备用多模态模型
 
 ```
 ============================================================
 🎯 和弦识别任务启动
 📐 图片尺寸: 1920 x 1080
+📋 使用默认纯视觉模型: doubao-seed-1-6-vision-250815 (纯视觉模型)
 🤖 主模型: doubao-seed-1-6-vision-250815
 🤖 可用视觉模型: 3 个
 ============================================================
@@ -103,7 +134,7 @@ VISION_MODEL=doubao-seed-1-6-vision-250815
 🤖 调用主模型: doubao-seed-1-6-vision-250815
 ❌ 主模型调用失败 (doubao-seed-1-6-vision-250815): Model not available
 ⚠️ 主模型 doubao-seed-1-6-vision-250815 调用失败: Model not available
-🔍 智能选择备用模型: doubao-seed-1-8-251228 (优先级: 2)
+🔍 智能选择备用模型: doubao-seed-1-8-251228 (多模态Agent, 优先级: 2)
 🔄 尝试备用模型: doubao-seed-1-8-251228 (优先级: 2)
 🤖 调用备用模型: doubao-seed-1-8-251228
 ✅ 备用模型调用成功: doubao-seed-1-8-251228
@@ -232,24 +263,64 @@ export VISION_MODEL=doubao-seed-1-8-251228
 
 ## 技术实现
 
-### 模型优先级算法
+### 模型配置
+
+```typescript
+interface VisionModelConfig {
+  id: string;      // 模型ID
+  name: string;    // 模型名称
+  type: 'pure-vision' | 'multimodal';  // 模型类型
+  priority: number; // 优先级
+}
+
+const AVAILABLE_VISION_MODELS: readonly VisionModelConfig[] = [
+  {
+    id: 'doubao-seed-1-6-vision-250815',
+    name: '纯视觉模型',
+    type: 'pure-vision',
+    priority: 1,
+  },
+  {
+    id: 'doubao-seed-1-8-251228',
+    name: '多模态Agent',
+    type: 'multimodal',
+    priority: 2,
+  },
+  {
+    id: 'doubao-seed-1-6-251015',
+    name: '平衡性能',
+    type: 'multimodal',
+    priority: 2,
+  },
+];
+```
+
+### 模型优先级获取
 
 ```typescript
 function getVisionModelPriority(modelId: string): number {
-  if (modelId.includes('vision')) {
-    return 1;  // 纯视觉模型
+  const config = getModelConfig(modelId);
+  if (config) {
+    return config.priority;
   }
-  if (modelId.includes('-8-') || modelId.includes('agent')) {
-    return 2;  // 多模态Agent模型
-  }
-  return 3;  // 其他模型
+  return 3;  // 未知模型最低优先级
 }
 ```
 
 ### 智能选择逻辑
 
-1. 过滤掉已失败的模型
-2. 按优先级分组候选模型
-3. 优先选择优先级最高的模型
-4. 排除同优先级中已失败的模型
-5. 返回第一个可用的候选模型
+1. 获取模型配置（通过 `getModelConfig()`）
+2. 过滤掉已失败的模型
+3. 按优先级分组候选模型
+4. 优先选择优先级最高的模型
+5. 排除同优先级中已失败的模型
+6. 返回第一个可用的候选模型
+
+### 优势
+
+| 特性 | 旧方案（硬编码） | 新方案（配置化） |
+|------|------------------|----------------|
+| 可维护性 | 需要修改多处代码 | 只需修改配置列表 |
+| 可扩展性 | 添加模型需要修改判断逻辑 | 添加模型只需添加配置项 |
+| 类型安全 | 字符串匹配，容易出错 | TypeScript 类型检查 |
+| 可读性 | 逻辑分散，难以理解 | 配置清晰，一目了然 |

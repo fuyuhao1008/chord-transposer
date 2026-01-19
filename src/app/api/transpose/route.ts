@@ -3,32 +3,69 @@ import { chordTransposer, Chord } from '@/lib/chord-transposer';
 import sharp from 'sharp';
 import { LLMClient, Config, APIError } from 'coze-coding-dev-sdk';
 
-// 可用视觉模型列表（按优先级排序）
+/**
+ * 视觉模型配置
+ * 明确定义每个模型的类型和优先级
+ */
+interface VisionModelConfig {
+  id: string;
+  name: string;
+  type: 'pure-vision' | 'multimodal';
+  priority: number;
+}
+
+// 可用视觉模型列表（配置化，按优先级排序）
 // 注意：只有真正支持视觉的模型才能被列入此列表
 // 文本模型（thinking, flash等）不能处理图片，不能作为备用
-const AVAILABLE_VISION_MODELS = [
-  // 纯视觉模型（优先）
-  'doubao-seed-1-6-vision-250815',
-  
-  // 支持视觉的多模态模型（备选）
-  'doubao-seed-1-8-251228',
-  'doubao-seed-1-6-251015',
+const AVAILABLE_VISION_MODELS: readonly VisionModelConfig[] = [
+  {
+    id: 'doubao-seed-1-6-vision-250815',
+    name: '纯视觉模型',
+    type: 'pure-vision',
+    priority: 1,
+  },
+  {
+    id: 'doubao-seed-1-8-251228',
+    name: '多模态Agent',
+    type: 'multimodal',
+    priority: 2,
+  },
+  {
+    id: 'doubao-seed-1-6-251015',
+    name: '平衡性能',
+    type: 'multimodal',
+    priority: 2,
+  },
 ] as const;
 
 /**
- * 模型类型分类
+ * 获取模型配置
+ */
+function getModelConfig(modelId: string): VisionModelConfig | undefined {
+  return AVAILABLE_VISION_MODELS.find(m => m.id === modelId);
+}
+
+/**
+ * 获取模型优先级
  */
 function getVisionModelPriority(modelId: string): number {
-  // 纯视觉模型：优先级最高（1）
-  if (modelId.includes('vision')) {
-    return 1;
+  const config = getModelConfig(modelId);
+  if (config) {
+    return config.priority;
   }
-  // 多模态模型（支持视觉）：优先级中等（2）
-  if (modelId.includes('-8-') || modelId.includes('1-6-251015')) {
-    return 2;
-  }
-  // 其他模型：优先级最低（3）
+  // 如果模型不在列表中，默认最低优先级
   return 3;
+}
+
+/**
+ * 获取模型类型描述
+ */
+function getModelTypeDescription(modelId: string): string {
+  const config = getModelConfig(modelId);
+  if (config) {
+    return config.type === 'pure-vision' ? '纯视觉模型 ✓' : '多模态模型';
+  }
+  return '未知模型';
 }
 
 /**
@@ -39,14 +76,19 @@ function getPrimaryModel(): string {
   
   // 如果配置了模型，使用配置的模型
   if (configuredModel) {
-    console.log(`📋 使用用户配置的主模型: ${configuredModel}`);
-    return configuredModel;
+    // 验证配置的模型是否在可用列表中
+    const config = getModelConfig(configuredModel);
+    if (config) {
+      console.log(`📋 使用用户配置的主模型: ${configuredModel} (${config.name})`);
+      return configuredModel;
+    }
+    console.warn(`⚠️ 配置的模型 ${configuredModel} 不在可用列表中，将使用默认模型`);
   }
   
   // 否则使用默认的纯视觉模型
   const defaultModel = AVAILABLE_VISION_MODELS[0];
-  console.log(`📋 使用默认纯视觉模型: ${defaultModel}`);
-  return defaultModel;
+  console.log(`📋 使用默认纯视觉模型: ${defaultModel.id} (${defaultModel.name})`);
+  return defaultModel.id;
 }
 
 /**
@@ -55,16 +97,20 @@ function getPrimaryModel(): string {
  * 排除当前失败的模型
  */
 function selectFallbackModel(excludedModel: string): string {
-  const excludedPriority = getVisionModelPriority(excludedModel);
+  const excludedConfig = getModelConfig(excludedModel);
   
   // 过滤掉已失败的模型
-  const availableModels = AVAILABLE_VISION_MODELS.filter(m => m !== excludedModel);
+  const availableModels = AVAILABLE_VISION_MODELS.filter(m => m.id !== excludedModel);
+  
+  if (availableModels.length === 0) {
+    throw new Error('没有可用的备用模型');
+  }
   
   // 按优先级分组
-  const modelsByPriority: Record<number, string[]> = {
-    1: availableModels.filter(m => getVisionModelPriority(m) === 1),
-    2: availableModels.filter(m => getVisionModelPriority(m) === 2),
-    3: availableModels.filter(m => getVisionModelPriority(m) === 3),
+  const modelsByPriority: Record<number, VisionModelConfig[]> = {
+    1: availableModels.filter(m => m.priority === 1),
+    2: availableModels.filter(m => m.priority === 2),
+    3: availableModels.filter(m => m.priority === 3),
   };
   
   // 优先选择同优先级或更优的模型
@@ -77,13 +123,13 @@ function selectFallbackModel(excludedModel: string): string {
     const candidates = modelsByPriority[priority];
     if (candidates && candidates.length > 0) {
       const selected = candidates[0];
-      console.log(`🔍 智能选择备用模型: ${selected} (优先级: ${priority})`);
-      return selected;
+      console.log(`🔍 智能选择备用模型: ${selected.id} (${selected.name}, 优先级: ${selected.priority})`);
+      return selected.id;
     }
   }
   
   // 如果所有模型都不可用，返回第一个（作为最后的尝试）
-  return availableModels[0];
+  return availableModels[0].id;
 }
 
 export async function POST(request: NextRequest) {
