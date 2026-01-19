@@ -291,6 +291,7 @@ class ChordTransposer {
    * 解析和弦字符串
    * @param chordString 和弦字符串，如 "C", "Am7", "Gsus4", "C/E", "G7sus4", "#C", "(D)", "(D/F#)", "(#D/F#)"
    * 也支持后缀格式，如 "D7Fine." → "D7", "C D.S.al.Fine." → "C"
+   * 也支持带括号的和弦性质：D(add2) → Dadd2, Em7(b5) → Em7b5
    */
   parseChord(chordString: string): Chord | null {
     console.log(`  解析和弦: "${chordString}"`);
@@ -306,7 +307,20 @@ class ChordTransposer {
     }
     console.log(`  上标转换后: "${trimmed}"`);
 
-    // 检测是否有括号（必须同时有左右括号）
+    // 处理带括号的和弦性质（例如 D(add2) → Dadd2, Em7(b5) → Em7b5）
+    // 匹配模式：根音 + 可能的性质 + 括号内的内容
+    // 例如：D(add2), Em7(b5), Gmaj7(#11), Am7(b9)
+    const parenthesizedQualityRegex = /^([A-G][#b]?)([a-z0-9]*?)\(([^)]+)\)$/i;
+    const parenthesizedMatch = trimmed.match(parenthesizedQualityRegex);
+
+    if (parenthesizedMatch) {
+      const [, root, qualityBefore, contentInParentheses] = parenthesizedMatch;
+      // 合并括号前后的内容
+      trimmed = root + qualityBefore + contentInParentheses;
+      console.log(`  去除性质括号: "${chordString}" → "${trimmed}"`);
+    }
+
+    // 检测是否有括号（必须同时有左右括号）- 这是为了处理 (D), (D/F#) 这样的情况
     const hasParentheses = trimmed.startsWith('(') && trimmed.endsWith(')');
 
     // 如果有括号，去掉括号后再匹配
