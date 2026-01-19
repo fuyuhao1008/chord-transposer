@@ -558,18 +558,20 @@ async function annotateImage(
       const textHeight = actualTextHeight || (fontSize * 1.1);
 
       // 计算实际绘制矩形（大padding，确保完全覆盖原和弦）
+      // 关键修正：AI返回的y坐标是和弦文本的底部位置，而非中心点
+      // 因此背景框应该从y向上绘制，而不是以y为中心
       const drawPadding = fontSize * 0.8; // 大padding，实际绘制用
       const rectWidth = Math.round(textWidth + drawPadding * 2);
       const rectHeight = Math.round(textHeight + drawPadding * 0.63); // 纵向padding减少10%
       const rectX = x - rectWidth / 2;
-      const rectY = y - rectHeight / 2;
+      const rectY = y - rectHeight; // y是底部，所以向上扩展rectHeight
 
       // 计算重叠检测矩形（小padding，避免过度检测重叠）
       const overlapPadding = fontSize * 0.2; // 小padding，重叠检测用
       const overlapRectWidth = Math.round(textWidth + overlapPadding * 2);
       const overlapRectHeight = Math.round(textHeight + overlapPadding * 0.7);
       const overlapRectX = x - overlapRectWidth / 2;
-      const overlapRectY = y - overlapRectHeight / 2;
+      const overlapRectY = y - overlapRectHeight; // 同样从底部向上计算
 
       chordDrawInfos.push({
         chordText,
@@ -654,9 +656,12 @@ async function annotateImage(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const info of chordDrawInfos) {
-      // 绘制和弦文本（使用 middle 基线，确保文本中心对齐坐标点）
+      // 绘制和弦文本（使用 middle 基线）
+      // 文本应该绘制在背景框的中心位置
+      // info.y 是背景框的底部，所以中心点是 rectY + rectHeight / 2
+      const centerY = info.rectY + info.rectHeight / 2;
       ctx.fillStyle = info.color; // 使用调整后的颜色（可能是原色或调淡色）
-      ctx.fillText(info.chordText, info.x, info.y);
+      ctx.fillText(info.chordText, info.x, centerY);
     }
 
     // 在左上角绘制转调标记（蓝色）
