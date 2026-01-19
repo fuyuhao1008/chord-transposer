@@ -317,84 +317,33 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
     const config = new Config();
     const client = new LLMClient(config);
 
-    // 构造优化的提示词（绝对像素坐标 + 中心点定位）
-    const systemPrompt = `你是一个专业的简谱和弦 OCR 定位系统。你的任务是从一张简谱图片中识别调号，并定位所有和弦标记的精确像素位置。
+    // 构造精简的提示词（千分比坐标 + 中心点定位）
+    const systemPrompt = `你是专业简谱和弦OCR定位系统。任务：识别调号并定位所有和弦标记。
 
-==============================
-【图片尺寸（非常重要）】
-- 图片宽度：${imgWidth} 像素
-- 图片高度：${imgHeight} 像素
-- 图片左上角坐标为 (0, 0)
-- 图片右下角坐标为 (${imgWidth}, ${imgHeight})
+【图片尺寸】
+宽${imgWidth}px，高${imgHeight}px，左上角(0,0)，右下角(${imgWidth},${imgHeight})
 
-==============================
-【唯一允许的坐标系统】
-- 坐标必须是"绝对像素坐标"
-- x 轴范围：0 ≤ x ≤ ${imgWidth}
-- y 轴范围：0 ≤ y ≤ ${imgHeight}
-- ❌ 不允许使用百分比
-- ❌ 不允许使用 0–1 或 0–100 的归一化坐标
-- ❌ 不允许相对坐标或比例坐标
+【坐标系统】
+使用千分比坐标（0-1000），代表相对于图片尺寸的千分比。
+cx∈[0,1000], cy∈[0,1000]
 
-==============================
 【识别任务】
 
 1. 调号识别：
-- 查找图片左上角的调号标记，格式可能是："1=C"、"1=G"、"1=A"、"原调: F"、"1=bB"、"1=bE"、"1=bA"等
-- 必须识别升降号（#或b），返回完整的调号，包括升降号
-- 示例：
-  - "1=C" → 返回 "C"
-  - "1=G" → 返回 "G"
-  - "1=Bb" 或 "1=bB" → 返回 "Bb"（降号必须保留）
-  - "1=F#" 或 "1=#F" → 返回 "F#"（升号必须保留）
-- 如果图片中没有调号标记，返回 null
+查找左上角调号（如"1=C"、"1=Bb"、"1=F#"等），返回标准格式（C、Bb、F#等）。
+若无调号返回null。
 
 2. 和弦识别：
-- 识别图片中所有和弦标记（例如：C, Am, G7, F#m, Asus4, D/F# 等）
-- 和弦通常位于音符或小节线上方
-- 注意：升降号（#、b）可能以三种形式出现：
-  1. 普通形式：F#、Bb、G#m
-  2. 上标形式（浮在上半空间）：F^#、B^b、G^#m（类似 A7sus4 中 7、4 的上标）
-  3. 前置形式：#F、bE（识别后请转换为标准形式 F#、Eb）
-- 无论升降号以何种形式出现，都应识别并返回标准格式（如 F# 而非 F^#）
-- ⚠️ 带括号的和弦处理（非常重要）：
-  - 如果和弦带有括号（如 Em7(b5)、D(add2)、Am7(b9)），请去掉括号，转换为标准形式
-  - Em7(b5) 识别为 "Em7b5"
-  - D(add2) 识别为 "Dadd2"
-  - Am7(b9) 识别为 "Am7b9"
-  - Gmaj7(#11) 识别为 "Gmaj7#11"
-  - 括号只是排版格式，不影响和弦的实际含义
-- ⚠️ 终止标记和重复记号（非常重要）：
-  - Fine.、D.S.、D.C.、Segno、Coda 等是终止/重复记号，不是和弦，必须忽略
-  - 不要识别"Fine."、".Fine"等作为和弦
-  - 不要将"ine"、"Fine."等文本识别为和弦
-  - 如果看到"CD.S.al.Fine."，只识别"C"和弦，忽略后面的"D.S.al.Fine."
-  - 如果看到"D7Fine."，只识别"D7"和弦，忽略后面的"Fine."
-  - 若看到用"或"或"or"连接的两个和弦（如"G 或 G/B"），"或"字是分隔符，只返回第一个和弦"G"及其中心位置
-- 忽略歌词、简谱数字（1–7）、拍号（4/4 等）、速度标记
+识别所有和弦（C、Am、G7、F#m、Asus4、D/F#等）。
+升降号三种形式：普通(F#)、上标(F^#)、前置(#F)，均返回标准格式(F#)。
+⚠️ 带括号和弦处理：去掉括号转标准形式。Em7(b5)→Em7b5, D(add2)→Dadd2, Am7(b9)→Am7b9。
+⚠️ 终止记号过滤：Fine.、D.S.、D.C.、Segno、Coda等不是和弦，必须忽略。
+若看到"或"或"or"连接的和弦（如"G 或 G/B"），只返回第一个"G"。
+复合字符串处理：CD.S.al.Fine.只识别"C"，D7Fine.只识别"D7"。
 
-==============================
-【坐标定位规则（严格）】
-
-你的任务不是返回边界框，而是返回每个和弦文字的"视觉中心点"。
-
-- 返回 center_x, center_y
-- center_x, center_y 必须是绝对像素坐标
-- center_y 必须真实反映和弦在图片中的垂直位置
-- center_x 必须真实反映和弦在图片中的水平位置
-
-==============================
-【分布校验规则（必须遵守）】
-
-- 如果图片下半部分（y > ${Math.floor(imgHeight * 0.5)}）存在和弦，必须返回对应坐标
-- 不允许所有和弦的 y 值集中在图片上半部分
-- 图片底部区域（y > ${Math.floor(imgHeight * 0.75)}）出现的和弦，必须被识别并返回
-
-==============================
-【返回格式（只允许 JSON）】
-
+【返回格式】
 {
-  "key": "A" 或 null,
+  "key": "A"或null,
   "centers": [
     { "text": "D",   "cx": 145, "cy": 260 },
     { "text": "A",   "cx": 390, "cy": 260 },
@@ -402,10 +351,8 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
   ]
 }
 
-❗ 不要输出任何解释性文字
-❗ 不要使用 Markdown
-❗ 不要省略任何检测到的和弦
-❗ 按从左到右、从上到下的顺序返回`;
+❗ 只返回JSON，无任何解释文字或Markdown`;
+
 
     const userPrompt = '请分析这张简谱图片，识别调号和所有和弦标记，以JSON格式返回。特别注意：必须返回每个和弦的真实像素中心点坐标（cx, cy），坐标范围必须是 0-' + imgWidth + '（x轴）和 0-' + imgHeight + '（y轴）。';
 
@@ -433,7 +380,7 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
     // 调用视觉模型
     const response = await client.invoke(messages, {
       model: 'doubao-seed-1-6-vision-250815',
-      temperature: 0.2, // 低温度以获得更准确的结果
+      temperature: 0.3, // 提升温度以加快处理速度，同时保持较高准确率
     });
 
     // 解析 JSON 响应
@@ -680,7 +627,7 @@ async function annotateImage(
 
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
-      const markFontSize = Math.max(24, Math.min(40, Math.round(image.width / 30))); // 增大字号
+      const markFontSize = Math.floor(Math.sqrt(image.width) * 1.8); // 平方根比例，确保字号平滑增长
       const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
