@@ -563,16 +563,19 @@ async function annotateImage(
       const rectHeight = Math.round(textHeight + drawPadding * 0.63); // 纵向padding减少10%
       const rectX = x - rectWidth / 2;
       const rectY = y - rectHeight / 2; // 以y为中心
-      // 微调：背景框整体向下移动，更好地覆盖原和弦
-      const offsetY = fontSize * 0.2; // 向下偏移20%的字体大小
-      const adjustedRectY = rectY + offsetY;
+
+      // 微调：动态向上偏移，y越大（越往下），向上偏移越多
+      // offset = y坐标百分比 * 图片高度 * 系数
+      const yRatio = chord.y / 100; // 0-1之间，表示y在图片中的相对位置
+      const yOffset = yRatio * image.height * 0.05; // 向上偏移量为y坐标的5%
+      const adjustedRectY = rectY - yOffset; // 向上偏移（减去）
 
       // 计算重叠检测矩形（小padding，避免过度检测重叠）
       const overlapPadding = fontSize * 0.2; // 小padding，重叠检测用
       const overlapRectWidth = Math.round(textWidth + overlapPadding * 2);
       const overlapRectHeight = Math.round(textHeight + overlapPadding * 0.7);
       const overlapRectX = x - overlapRectWidth / 2;
-      const overlapRectY = y - overlapRectHeight / 2 + offsetY;
+      const overlapRectY = y - overlapRectHeight / 2 - yOffset;
 
       chordDrawInfos.push({
         chordText,
@@ -666,7 +669,7 @@ async function annotateImage(
 
     // 在左上角绘制转调标记（蓝色）
     if (originalKey && targetKey) {
-      const markFontSize = Math.floor(image.width * 0.02); // 宽度的2%
+      const markFontSize = Math.floor(image.width * 0.04); // 宽度的4%
       const markText = `${originalKey} --> ${targetKey}`; // 简洁格式：Bb --> F
       const markPadding = 15;
 
