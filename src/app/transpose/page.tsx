@@ -12,7 +12,7 @@ interface Point {
   y: number;
 }
 
-type PageState = 'upload' | 'settings' | 'processing' | 'result';
+type PageState = 'upload' | 'uploading' | 'settings' | 'processing' | 'result';
 
 // 图标组件：精确的圆圈和文字框设计
 function CalibrationMarker({
@@ -531,7 +531,7 @@ export default function TransposePage() {
       reader.onload = (e) => {
         setImageSrc(e.target?.result as string);
         setImageKey(prev => prev + 1);
-        setPageState('settings');
+        setPageState('upload'); // 保持upload状态，等待用户确认
         setResult(null);
         setOriginalKey('');
         setIsAutoRecognized(false);
@@ -571,11 +571,12 @@ export default function TransposePage() {
     return null;
   };
 
-  // 确认选择并识别原调（同时识别所有和弦，复用于转调）
-  const handleConfirmSelection = async () => {
+  // 确认上传并识别原调（同时识别所有和弦，复用于转调）
+  const handleConfirmUpload = async () => {
     if (isRecognizing) return;
 
     setIsRecognizing(true);
+    setPageState('uploading'); // 进入上传中状态，显示等待界面
 
     try {
       const response = await fetch(imageSrc);
@@ -608,8 +609,13 @@ export default function TransposePage() {
         setIsAutoRecognized(false); // 未识别到，标记为非自动识别
         console.log('⚠️ 未识别到原调');
       }
+
+      // 识别完成，跳转到设置页面
+      setPageState('settings');
     } catch (error) {
       console.error('识别失败:', error);
+      alert('识别失败，请重试');
+      setPageState('upload'); // 失败后返回上传页面
     } finally {
       setIsRecognizing(false);
     }
@@ -862,31 +868,101 @@ export default function TransposePage() {
         {/* 上传区域（居中显示） */}
         {pageState === 'upload' && (
           <div className="flex justify-center mb-3">
+            <div className="w-full max-w-2xl space-y-3">
+              {!imageSrc && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div
+                      className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center transition-colors cursor-pointer ${
+                        isMobile ? 'p-8' : 'p-16'
+                      } hover:border-indigo-500`}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <div className={`space-y-4 ${isMobile ? 'space-y-2' : ''}`}>
+                        <Upload className={`mx-auto text-gray-400 ${isMobile ? 'w-14 h-14' : 'w-20 h-20'}`} />
+                        <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-600 dark:text-gray-400 font-semibold`}>
+                          点击上传简谱图片
+                        </p>
+                        <p className={`text-gray-500 dark:text-gray-500 ${isMobile ? 'text-sm' : 'text-base'}`}>
+                          支持 JPG、PNG 格式
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              {imageSrc && (
+                <>
+                  {/* 图片预览 */}
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex justify-center">
+                        <img
+                          src={imageSrc}
+                          alt="上传的图片"
+                          className="max-w-4xl w-full rounded-lg border"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* 确认上传按钮 */}
+                  <Card>
+                    <CardContent className="pt-6">
+                      <Button
+                        onClick={handleConfirmUpload}
+                        disabled={isRecognizing}
+                        className="w-full"
+                        size="lg"
+                      >
+                        {isRecognizing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            识别中...
+                          </>
+                        ) : (
+                          '确认上传'
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setImageSrc('');
+                          setImageKey(prev => prev + 1);
+                        }}
+                        variant="outline"
+                        className="w-full mt-2"
+                        size="lg"
+                      >
+                        重新选择
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 上传中等待界面 */}
+        {pageState === 'uploading' && (
+          <div className="flex justify-center mb-3">
             <Card className="w-full max-w-2xl">
-              <CardContent className="pt-6">
-                <div
-                  className={`border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center transition-colors cursor-pointer ${
-                    isMobile ? 'p-8' : 'p-16'
-                  } hover:border-indigo-500`}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className={`space-y-4 ${isMobile ? 'space-y-2' : ''}`}>
-                    <Upload className={`mx-auto text-gray-400 ${isMobile ? 'w-14 h-14' : 'w-20 h-20'}`} />
-                    <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-gray-600 dark:text-gray-400 font-semibold`}>
-                      点击上传简谱图片
-                    </p>
-                    <p className={`text-gray-500 dark:text-gray-500 ${isMobile ? 'text-sm' : 'text-base'}`}>
-                      支持 JPG、PNG 格式
-                    </p>
-                  </div>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
+              <CardContent className="py-16 flex flex-col items-center justify-center space-y-4">
+                <Loader2 className="w-16 h-16 text-indigo-600 animate-spin" />
+                <p className="text-xl text-gray-600 dark:text-gray-400 font-semibold">
+                  正在识别图片，请稍候...
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-500">
+                  预计需要约20秒
+                </p>
               </CardContent>
             </Card>
           </div>
