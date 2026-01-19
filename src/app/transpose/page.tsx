@@ -902,8 +902,8 @@ export default function TransposePage() {
               {imageSrc && (
                 <>
                   {/* 图片预览 */}
-                  <Card className="mb-0">
-                    <CardContent className="pb-4">
+                  <Card className="mb-1">
+                    <CardContent className="pb-2">
                       <div className="flex justify-center">
                         <img
                           src={imageSrc}
@@ -915,39 +915,35 @@ export default function TransposePage() {
                   </Card>
 
                   {/* 确认上传按钮 */}
-                  <Card className="mt-0">
-                    <CardContent className="pt-2 pb-4">
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => {
-                            setImageSrc('');
-                            setImageKey(prev => prev + 1);
-                          }}
-                          disabled={isRecognizing}
-                          variant="outline"
-                          className="flex-1 bg-white hover:bg-gray-50"
-                          size="lg"
-                        >
-                          重新选择
-                        </Button>
-                        <Button
-                          onClick={handleConfirmUpload}
-                          disabled={isRecognizing}
-                          className="flex-1 bg-blue-600 hover:bg-blue-700"
-                          size="lg"
-                        >
-                          {isRecognizing ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              识别中...
-                            </>
-                          ) : (
-                            '确认上传'
-                          )}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="flex gap-2 px-1 pb-1">
+                    <Button
+                      onClick={() => {
+                        setImageSrc('');
+                        setImageKey(prev => prev + 1);
+                      }}
+                      disabled={isRecognizing}
+                      variant="outline"
+                      className="flex-1 bg-white hover:bg-gray-50"
+                      size="lg"
+                    >
+                      重新选择
+                    </Button>
+                    <Button
+                      onClick={handleConfirmUpload}
+                      disabled={isRecognizing}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      size="lg"
+                    >
+                      {isRecognizing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          识别中...
+                        </>
+                      ) : (
+                        '确认上传'
+                      )}
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
