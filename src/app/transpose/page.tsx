@@ -998,6 +998,9 @@ export default function TransposePage() {
                     <p className={`text-gray-500 dark:text-gray-500 ${isMobile ? 'text-sm' : 'text-base'}`}>
                       支持 JPG、PNG 格式
                     </p>
+                    <p className={`text-blue-600 dark:text-blue-400 ${isMobile ? 'text-sm' : 'text-base'} font-medium`}>
+                      请选择分辨率较高的图片以保证结果准确率
+                    </p>
                   </div>
                 </div>
                 <input
