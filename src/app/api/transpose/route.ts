@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     // 收集所有有效的中心点坐标（像素坐标）
     const validCenters = rawCenters.filter(
       (c: any) => typeof c.cx === 'number' && typeof c.cy === 'number' && !isNaN(c.cx) && !isNaN(c.cy) &&
-                   c.cx >= 0 && c.cx <= imgWidth && c.cy >= 0 && c.cy <= imgHeight
+                   c.cx >= 0 && c.cx <= 1000 && c.cy >= 0 && c.cy <= 1000
     );
 
     // 去重和异常值检测（基于像素坐标）
