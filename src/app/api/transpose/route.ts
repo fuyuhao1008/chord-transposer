@@ -585,45 +585,37 @@ async function annotateImage(
       });
     }
 
-    // 第二步：检测重叠并调整颜色（图着色算法，确保交替）
-    // 策略：构建重叠图，对每个连通分量从左到右交替着色
+    // 第二步：检测重叠并调整颜色（优化版图着色算法）
+    // 策略：找出每个连通分量，从左到右交替着色
+    // 复杂度优化：时间O(n²)，空间O(n)（不存储邻接表）
 
-    // 1. 构建邻接表
-    const adjacency: number[][] = Array.from({ length: chordDrawInfos.length }, () => []);
-    for (let i = 0; i < chordDrawInfos.length; i++) {
-      for (let j = i + 1; j < chordDrawInfos.length; j++) {
-        const a = chordDrawInfos[i];
-        const b = chordDrawInfos[j];
-        if (rectanglesOverlap(
-          a.overlapRectX, a.overlapRectY, a.overlapRectWidth, a.overlapRectHeight,
-          b.overlapRectX, b.overlapRectY, b.overlapRectWidth, b.overlapRectHeight
-        )) {
-          adjacency[i].push(j);
-          adjacency[j].push(i);
-        }
-      }
-    }
-
-    // 2. 找出每个连通分量并从左到右交替着色
-    const visited = new Set<number>();
-    const colorAssignments: boolean[] = Array(chordDrawInfos.length).fill(false); // false=原色, true=浅色
+    const visited = new Array<boolean>(chordDrawInfos.length).fill(false);
+    const colorAssignments = new Array<boolean>(chordDrawInfos.length).fill(false); // false=原色, true=浅色
 
     for (let start = 0; start < chordDrawInfos.length; start++) {
-      if (visited.has(start)) continue;
+      if (visited[start]) continue;
 
-      // BFS收集整个连通分量
+      // DFS收集整个连通分量（使用栈，避免队列开销）
       const component: number[] = [];
-      const queue: number[] = [start];
-      visited.add(start);
+      const stack: number[] = [start];
+      visited[start] = true;
 
-      while (queue.length > 0) {
-        const u = queue.shift()!;
+      while (stack.length > 0) {
+        const u = stack.pop()!;
         component.push(u);
 
-        for (const v of adjacency[u]) {
-          if (!visited.has(v)) {
-            visited.add(v);
-            queue.push(v);
+        // 动态检测重叠关系（不预先构建邻接表）
+        for (let v = 0; v < chordDrawInfos.length; v++) {
+          if (v === u || visited[v]) continue;
+
+          const a = chordDrawInfos[u];
+          const b = chordDrawInfos[v];
+          if (rectanglesOverlap(
+            a.overlapRectX, a.overlapRectY, a.overlapRectWidth, a.overlapRectHeight,
+            b.overlapRectX, b.overlapRectY, b.overlapRectWidth, b.overlapRectHeight
+          )) {
+            visited[v] = true;
+            stack.push(v);
           }
         }
       }
@@ -637,7 +629,7 @@ async function annotateImage(
       }
     }
 
-    // 3. 应用颜色
+    // 应用颜色
     for (let i = 0; i < chordDrawInfos.length; i++) {
       if (colorAssignments[i]) {
         chordDrawInfos[i].color = lightenColor(chordColor, 0.4);
