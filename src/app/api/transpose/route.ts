@@ -3,16 +3,90 @@ import { chordTransposer, Chord } from '@/lib/chord-transposer';
 import sharp from 'sharp';
 import { LLMClient, Config, APIError } from 'coze-coding-dev-sdk';
 
-// 模型配置
-const DEFAULT_VISION_MODEL = 'doubao-seed-1-6-vision-250815';
-const FALLBACK_VISION_MODEL = 'doubao-seed-1-8-251228';
+// 可用视觉模型列表（按优先级排序）
+// 优先级：纯视觉模型 > 支持视觉的多模态模型 > 通用模型
+const AVAILABLE_VISION_MODELS = [
+  // 纯视觉模型（优先）
+  'doubao-seed-1-6-vision-250815',
+  
+  // 支持视觉的多模态模型（备选）
+  'doubao-seed-1-8-251228',
+  'doubao-seed-1-6-251015',
+  
+  // 其他支持视觉的模型（紧急备用）
+  'doubao-seed-1-6-thinking-250715',
+  'doubao-seed-1-6-flash-250615',
+] as const;
 
-function getVisionModel(): string {
-  return process.env.VISION_MODEL || DEFAULT_VISION_MODEL;
+/**
+ * 模型类型分类
+ */
+function getVisionModelPriority(modelId: string): number {
+  // 纯视觉模型：优先级最高（1）
+  if (modelId.includes('vision')) {
+    return 1;
+  }
+  // 多模态Agent模型：优先级中等（2）
+  if (modelId.includes('-8-') || modelId.includes('agent')) {
+    return 2;
+  }
+  // 其他模型：优先级最低（3）
+  return 3;
 }
 
-function getFallbackVisionModel(): string {
-  return process.env.FALLBACK_VISION_MODEL || FALLBACK_VISION_MODEL;
+/**
+ * 获取用户配置的主模型
+ */
+function getPrimaryModel(): string {
+  const configuredModel = process.env.VISION_MODEL;
+  
+  // 如果配置了模型，使用配置的模型
+  if (configuredModel) {
+    console.log(`📋 使用用户配置的主模型: ${configuredModel}`);
+    return configuredModel;
+  }
+  
+  // 否则使用默认的纯视觉模型
+  const defaultModel = AVAILABLE_VISION_MODELS[0];
+  console.log(`📋 使用默认纯视觉模型: ${defaultModel}`);
+  return defaultModel;
+}
+
+/**
+ * 智能选择备用模型
+ * 优先级：1. 纯视觉模型 2. 多模态模型 3. 其他模型
+ * 排除当前失败的模型
+ */
+function selectFallbackModel(excludedModel: string): string {
+  const excludedPriority = getVisionModelPriority(excludedModel);
+  
+  // 过滤掉已失败的模型
+  const availableModels = AVAILABLE_VISION_MODELS.filter(m => m !== excludedModel);
+  
+  // 按优先级分组
+  const modelsByPriority: Record<number, string[]> = {
+    1: availableModels.filter(m => getVisionModelPriority(m) === 1),
+    2: availableModels.filter(m => getVisionModelPriority(m) === 2),
+    3: availableModels.filter(m => getVisionModelPriority(m) === 3),
+  };
+  
+  // 优先选择同优先级或更优的模型
+  // 如果失败的是纯视觉模型（优先级1），尝试其他纯视觉模型
+  // 如果失败的是多模态模型（优先级2），尝试纯视觉模型
+  // 如果失败的是其他模型（优先级3），尝试纯视觉或多模态模型
+  
+  // 按优先级顺序查找
+  for (const priority of [1, 2, 3]) {
+    const candidates = modelsByPriority[priority];
+    if (candidates && candidates.length > 0) {
+      const selected = candidates[0];
+      console.log(`🔍 智能选择备用模型: ${selected} (优先级: ${priority})`);
+      return selected;
+    }
+  }
+  
+  // 如果所有模型都不可用，返回第一个（作为最后的尝试）
+  return availableModels[0];
 }
 
 export async function POST(request: NextRequest) {
@@ -433,7 +507,7 @@ async function callVisionModelWithFallback(
 }
 
 /**
- * 调用多模态模型识别图片中的和弦和调号（支持模型切换）
+ * 调用多模态模型识别图片中的和弦和调号（支持智能模型切换）
  */
 async function recognizeChordsFromImage(imageBase64: string, mimeType: string, imgWidth: number, imgHeight: number): Promise<any> {
   try {
@@ -441,15 +515,14 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
     const config = new Config();
     const client = new LLMClient(config);
 
-    // 获取配置的模型
-    const primaryModel = getVisionModel();
-    const fallbackModel = getFallbackVisionModel();
+    // 获取主模型
+    const primaryModel = getPrimaryModel();
     
     console.log('='.repeat(60));
     console.log('🎯 和弦识别任务启动');
     console.log(`📐 图片尺寸: ${imgWidth} x ${imgHeight}`);
-    console.log(`🤖 主模型配置: ${primaryModel}`);
-    console.log(`🔄 备用模型配置: ${fallbackModel}`);
+    console.log(`🤖 主模型: ${primaryModel}`);
+    console.log(`🤖 可用视觉模型: ${AVAILABLE_VISION_MODELS.length} 个`);
     console.log('='.repeat(60));
 
     // 构造优化的提示词（绝对像素坐标 + 中心点定位）
@@ -558,31 +631,52 @@ async function recognizeChordsFromImage(imageBase64: string, mimeType: string, i
       },
     ];
 
-    // 调用视觉模型（主模型优先，失败则使用备用模型）
+    // 调用视觉模型（智能模型切换：优先纯视觉模型）
     let response: any;
     let modelUsed: string;
+    let failedModels: string[] = [];
     
+    // 第一阶段：尝试主模型
     try {
-      // 尝试主模型
+      console.log(`🚀 尝试主模型: ${primaryModel} (优先级: ${getVisionModelPriority(primaryModel)})`);
       const result = await callVisionModelWithFallback(client, messages, primaryModel, false);
       response = result.response;
       modelUsed = result.modelUsed;
     } catch (primaryError) {
-      console.warn(`⚠️ 主模型 ${primaryModel} 调用失败，尝试备用模型 ${fallbackModel}`);
+      console.warn(`⚠️ 主模型 ${primaryModel} 调用失败: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}`);
+      failedModels.push(primaryModel);
+      
+      // 第二阶段：智能选择备用模型（优先纯视觉模型）
+      let fallbackModel = selectFallbackModel(primaryModel);
+      let fallbackAttempts = 0;
+      const maxFallbackAttempts = AVAILABLE_VISION_MODELS.length - 1; // 最多尝试所有其他模型
+      
+      while (fallbackAttempts < maxFallbackAttempts && failedModels.includes(fallbackModel)) {
+        fallbackModel = selectFallbackModel(fallbackModel); // 选择下一个备选模型
+        fallbackAttempts++;
+      }
+      
+      if (failedModels.includes(fallbackModel)) {
+        console.error(`💔 所有可用模型均已尝试失败`);
+        throw new Error(`所有视觉模型均调用失败: ${failedModels.join(', ')}`);
+      }
       
       try {
-        // 尝试备用模型
+        console.log(`🔄 尝试备用模型: ${fallbackModel} (优先级: ${getVisionModelPriority(fallbackModel)})`);
         const result = await callVisionModelWithFallback(client, messages, fallbackModel, true);
         response = result.response;
         modelUsed = result.modelUsed;
-        console.log(`✅ 备用模型切换成功`);
+        console.log(`✅ 备用模型切换成功: ${fallbackModel}`);
+        console.log(`📊 模型类型: ${getVisionModelPriority(fallbackModel) === 1 ? '纯视觉模型' : '多模态模型'}`);
       } catch (fallbackError) {
-        console.error(`💔 备用模型也失败了，放弃识别`);
-        throw new Error(`主模型和备用模型均调用失败: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+        console.error(`💔 备用模型 ${fallbackModel} 也失败了`);
+        failedModels.push(fallbackModel);
+        throw new Error(`所有尝试的模型均调用失败: ${failedModels.join(', ')}`);
       }
     }
 
     console.log(`🎯 实际使用的模型: ${modelUsed}`);
+    console.log(`📊 模型类型: ${getVisionModelPriority(modelUsed) === 1 ? '纯视觉模型 ✓' : '多模态模型'}`);
 
     // 解析 JSON 响应
     const content = response.content.trim();
