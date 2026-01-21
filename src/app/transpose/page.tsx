@@ -359,13 +359,38 @@ export default function TransposePage() {
       // 重置拖动标志
       hasDraggedRef.current = false;
 
-      // 计算鼠标相对于图标中心的偏移量（用于拖动时保持相对位置）
+      // 计算鼠标相对于红色圆心的偏移量（用于拖动时保持相对位置）
+      // 注意：红色圆心在外圆中心，但图标是整体布局的
+      // 第一个图标：外圆中心在左边，文本框在右边，红色圆心相对于图标整体向左偏移
+      // 第二个图标：外圆中心在右边，文本框在左边，红色圆心相对于图标整体向右偏移
+      // 为了让用户点击位置与红色圆心对齐，需要计算红色圆心的实际位置
+      const scaleFactor = isMobile ? 0.65 : 1;
+      const circleOuterSize = 60 * scaleFactor; // 外圆直径
+      const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
+      const textWidth = 255 * scaleFactor; // 文字框宽度
+      const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
+
       const point = anchorPointsRef.current[markerIndex];
-      const markerCenterX = (point.x / 100) * containerRect.width;
-      const markerCenterY = (point.y / 100) * containerRect.height;
+      const redDotCenterX = (point.x / 100) * containerRect.width;
+      const redDotCenterY = (point.y / 100) * containerRect.height;
+
+      // 计算图标整体中心位置（考虑布局方向）
+      let iconCenterX = redDotCenterX;
+      if (markerIndex === 0) {
+        // 第一个图标：圆圈在左，红色圆心向左偏移
+        // 图标中心 = 圆圈中心 + (总宽度 - 圆圈直径) / 2
+        iconCenterX = redDotCenterX + (totalWidth - circleOuterSize) / 2;
+      } else {
+        // 第二个图标：圆圈在右，红色圆心向右偏移
+        // 图标中心 = 圆圈中心 - (总宽度 - 圆圈直径) / 2
+        iconCenterX = redDotCenterX - (totalWidth - circleOuterSize) / 2;
+      }
+
+      const iconCenterY = redDotCenterY;
+
       dragOffsetRef.current = {
-        x: pointerX - markerCenterX,
-        y: pointerY - markerCenterY,
+        x: pointerX - iconCenterX,
+        y: pointerY - iconCenterY,
       };
 
       // 启动长按检测
@@ -462,9 +487,26 @@ export default function TransposePage() {
     const newCenterX = dragOffsetRef.current ? mouseX - dragOffsetRef.current.x : mouseX;
     const newCenterY = dragOffsetRef.current ? mouseY - dragOffsetRef.current.y : mouseY;
 
-    // 转换为百分比坐标
-    const x = Math.max(0, Math.min(100, (newCenterX / containerRect.width) * 100));
-    const y = Math.max(0, Math.min(100, (newCenterY / containerRect.height) * 100));
+    // 将图标中心位置转换为红色圆心位置（考虑布局方向）
+    const scaleFactor = isMobile ? 0.65 : 1;
+    const circleOuterSize = 60 * scaleFactor; // 外圆直径
+    const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
+    const textWidth = 255 * scaleFactor; // 文字框宽度
+    const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
+
+    let redDotX = newCenterX;
+    if (draggingIndexRef.current === 0) {
+      // 第一个图标：红色圆心向左偏移
+      redDotX = newCenterX - (totalWidth - circleOuterSize) / 2;
+    } else if (draggingIndexRef.current === 1) {
+      // 第二个图标：红色圆心向右偏移
+      redDotX = newCenterX + (totalWidth - circleOuterSize) / 2;
+    }
+    const redDotY = newCenterY;
+
+    // 转换为百分比坐标（红色圆心位置）
+    const x = Math.max(0, Math.min(100, (redDotX / containerRect.width) * 100));
+    const y = Math.max(0, Math.min(100, (redDotY / containerRect.height) * 100));
 
     // 更新图标位置
     setAnchorPoints(prev => {
@@ -643,7 +685,10 @@ export default function TransposePage() {
       const circleOuterSize = 60 * scaleFactor; // 外圆直径
       const spacing = 20 * scaleFactor; // 圆圈和文字框的间距
       // 文字框实际尺寸（根据文字内容计算）
-      const textWidth = 236 * scaleFactor; // 文字框宽度（微调以对齐红点）
+      // 修改后文本："请长按此文本框并拖动" + "使红点落在[离顶部最近的/最后一个]和弦标记上"
+      // 第一行：11个中文字符，第二行：13-15个中文字符，padding：12*2=24
+      // 估算宽度：(15字符 * 14px * 1.1) + 24px = 255px
+      const textWidth = 255 * scaleFactor; // 文字框宽度（更新为匹配新的简短文本）
       const textHeight = 70 * scaleFactor; // 文字框高度（两行文字）
       const totalWidth = circleOuterSize + spacing + textWidth; // 总宽度
       const totalHeight = Math.max(circleOuterSize, textHeight); // 总高度
