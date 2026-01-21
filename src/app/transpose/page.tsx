@@ -32,7 +32,7 @@ function CalibrationMarker({
     : ['请长按此文本框并拖动', '使红点落在最后一个和弦标记中央'];
 
   // 文字中需要强调的部分（黄色）
-  const highlightWord = isFirst ? '离顶部最近的' : '末尾';
+  const highlightWord = isFirst ? '离顶部最近的' : '最后一个';
 
   // 判断是否移动端
   const isMobileSize = isMobile;
