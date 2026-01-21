@@ -1053,8 +1053,8 @@ export default function TransposePage() {
               <div className="mb-1 mx-6 bg-indigo-600 text-white px-6 py-3 rounded-lg text-center font-semibold shadow-lg animate-pulse">
                 {pageState === 'locating_first'
                   ? (isMobile
-                      ? <><div>请点击【离图片顶部最近的】一个和弦</div><div className="mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
-                      : <div>请点击【离图片顶部最近的】一个和弦</div>)
+                      ? <><div>请点击【离图片顶部最近的】和弦</div><div className="mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
+                      : <div>请点击【离图片顶部最近的】和弦</div>)
                   : (isMobile
                       ? <><div>请点击【最后一个】和弦标记</div><div className="mt-1 font-normal text-red-300">完成后请点击最底部的确认按钮</div></>
                       : <div>请点击【最后一个】和弦标记</div>)}
