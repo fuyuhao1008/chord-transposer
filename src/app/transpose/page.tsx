@@ -28,7 +28,7 @@ function CalibrationMarker({
 }) {
   // 根据索引生成不同的文字内容
   const textLines = isFirst
-    ? ['请长按此文本框并拖动', '使红点落在第一个和弦标记中央']
+    ? ['请长按此文本框并拖动', '使红点落在第一个和弦标记中央', '(必须是第一行最上方的和弦)']
     : ['请长按此文本框并拖动', '使红点落在最后一个和弦标记中央'];
 
   // 文字中需要强调的部分（黄色）
@@ -199,6 +199,7 @@ function CalibrationMarker({
             fontSize: textFontSize,
             color: '#ffffff',
             fontWeight: 400,
+            marginBottom: textPadding / 2,
             fontFamily: '"Microsoft YaHei", "Segoe UI", sans-serif',
             lineHeight: 1.4,
           }}
@@ -207,6 +208,21 @@ function CalibrationMarker({
           <span style={{ color: '#ffd666' }}>{highlightWord}</span>
           和弦标记中央
         </div>
+
+        {/* 第三行文字（如果有） */}
+        {textLines[2] && (
+          <div
+            style={{
+              fontSize: textFontSize,
+              color: '#ffd666',
+              fontWeight: 400,
+              fontFamily: '"Microsoft YaHei", "Segoe UI", sans-serif',
+              lineHeight: 1.4,
+            }}
+          >
+            {textLines[2]}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1037,8 +1053,8 @@ export default function TransposePage() {
               <div className="mb-1 mx-6 bg-indigo-600 text-white px-6 py-3 rounded-lg text-center font-semibold shadow-lg animate-pulse">
                 {pageState === 'locating_first'
                   ? (isMobile
-                      ? <><div>请点击【第一个】和弦标记</div><div className="mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
-                      : <div>请点击【第一个】和弦标记</div>)
+                      ? <><div>请点击【第一个】和弦标记</div><div className="mt-1 font-normal text-red-300">（必须是第一行最上方的和弦，如有两行和弦请选上方的）</div><div className="mt-1 font-normal text-red-300">（可双指划开图片进行放大）</div></>
+                      : <><div>请点击【第一个】和弦标记</div><div className="mt-1 font-normal text-red-300">（必须是第一行最上方的和弦，如有两行和弦请选上方的）</div></>)
                   : (isMobile
                       ? <><div>请点击【最后一个】和弦标记</div><div className="mt-1 font-normal text-red-300">完成后请点击最底部的确认按钮</div></>
                       : <div>请点击【最后一个】和弦标记</div>)}
