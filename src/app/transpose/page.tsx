@@ -672,49 +672,6 @@ export default function TransposePage() {
     }
   };
 
-  // 跳过校准，直接使用AI识别位置
-  const handleSkipCalibration = async () => {
-    setIsRecognizing(true);
-
-    try {
-      const response = await fetch(imageSrc);
-      const blob = await response.blob();
-      const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
-
-      // 识别原调和和弦（一次调用，返回完整结果）
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('onlyRecognizeKey', 'true'); // 告诉后端只识别，不转调
-
-      const apiResponse = await fetch('/api/transpose', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await apiResponse.json();
-
-      // 存储完整的识别结果（包含原调和和弦）
-      if (data.recognitionResult) {
-        setChordsData(data.recognitionResult);
-        console.log('🎵 识别完整结果（原调和和弦）已存储');
-      }
-
-      if (data.originalKey) {
-        setOriginalKey(data.originalKey);
-        setIsAutoRecognized(true); // 标记为AI自动识别
-        console.log('🎵 自动识别原调成功:', data.originalKey);
-      } else {
-        setIsAutoRecognized(false); // 未识别到，标记为非自动识别
-        console.log('⚠️ 未识别到原调');
-      }
-    } catch (error) {
-      console.error('识别失败:', error);
-    } finally {
-      setIsRecognizing(false);
-      setPageState('settings');
-    }
-  };
-
   // 确认选择并识别原调（同时识别所有和弦，复用于转调）
   const handleConfirmSelection = async () => {
     if (anchorPoints.length !== 2 || isRecognizing) return;
@@ -1179,22 +1136,8 @@ export default function TransposePage() {
                   </div>
                 )}
 
-                {/* 跳过校准按钮（仅在没有选择任何锚点时显示） */}
-                {anchorPoints.length === 0 && (
-                  <div className="mt-4 flex justify-center">
-                    <Button
-                      onClick={handleSkipCalibration}
-                      variant="outline"
-                      size={isMobile ? 'default' : 'lg'}
-                      className={`w-full ${isMobile ? 'py-6 text-lg' : 'max-w-md'}`}
-                    >
-                      跳过校准（使用AI识别位置）
-                    </Button>
-                  </div>
-                )}
-
                 {/* 定位状态提示 */}
-                {anchorPoints.length < 2 && anchorPoints.length !== 0 && (
+                {anchorPoints.length < 2 && (
                   <div className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
                     点击图中标记和弦的中心位置
                   </div>
