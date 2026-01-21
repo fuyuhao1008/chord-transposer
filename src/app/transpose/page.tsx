@@ -206,7 +206,7 @@ function CalibrationMarker({
         >
           使红点落在
           <span style={{ color: '#ffd666' }}>{highlightWord}</span>
-          和弦标记中央
+          和弦标记上
         </div>
 
         {/* 第三行文字（如果有） */}
