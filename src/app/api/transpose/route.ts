@@ -344,55 +344,49 @@ export async function POST(request: NextRequest) {
     console.log('Y坐标中位数:', medianY.toFixed(1), '标准差:', yStdDev.toFixed(1));
 
     if (dedupedCenters.length > 0) {
-      // ========== XY分离映射 ==========
-      // X轴：使用AI返回的真实 min/max X
-      // Y轴：使用用户锚点（如果有），否则使用千分比
-
-      // X轴：计算AI返回的真实边界
-      const aiMinX = Math.min(...dedupedCenters.map((c: any) => c.cx));
-      const aiMaxX = Math.max(...dedupedCenters.map((c: any) => c.cx));
+      // ========== 直接使用千分比坐标 ==========
+      // X轴：直接使用 cx / 10
+      // Y轴：有用户锚点时校准，否则使用 cy / 10
 
       // Y轴：根据是否有用户锚点决定
       let userMinY = null;
       let userMaxY = null;
 
       if (userAnchorFirst && userAnchorLast) {
-        console.log('========== XY分离映射（带用户Y轴锚点） ==========');
+        console.log('========== 使用千分比坐标（带用户Y轴锚点） ==========');
         userMinY = userAnchorFirst.y;
         userMaxY = userAnchorLast.y;
         console.log('用户Y轴锚点:', { min: userMinY, max: userMaxY });
       } else {
-        console.log('========== XY分离映射（使用千分比） ==========');
+        console.log('========== 直接使用千分比坐标 ==========');
       }
 
-      // Y轴：计算AI返回的真实边界（用于比例计算）
-      const aiMinY = Math.min(...dedupedCenters.map((c: any) => c.cy));
-      const aiMaxY = Math.max(...dedupedCenters.map((c: any) => c.cy));
-
-      console.log('AI返回坐标边界:', { minX: aiMinX, maxX: aiMaxX, minY: aiMinY, maxY: aiMaxY });
-
-      // 对每个和弦应用XY分离映射
+      // 对每个和弦直接使用千分比坐标
       for (let i = 0; i < dedupedCenters.length; i++) {
         const rawCenter = dedupedCenters[i];
 
         console.log(`\n========== 处理中心点 ${i + 1}: ${rawCenter.text} ==========`);
         console.log('AI返回的原始坐标:', { cx: rawCenter.cx, cy: rawCenter.cy });
 
-        // X轴：使用真实的 min/max 进行归一化映射
-        const ratioX = (rawCenter.cx - aiMinX) / (aiMaxX - aiMinX || 1);
-        const x = ratioX * 100;  // 百分比X
+        // X轴：直接使用千分比
+        const x = rawCenter.cx / 10;  // 千分比 → 百分比
+        console.log(`X轴千分比: ${rawCenter.cx} → ${x.toFixed(1)}%`);
 
         // Y轴：根据是否有用户锚点
         let y;
         if (userMinY !== null && userMaxY !== null) {
-          // 使用用户锚点进行映射
+          // 使用用户锚点进行Y轴校准
+          // 计算AI Y轴在AI范围内的比例
+          const aiMinY = Math.min(...dedupedCenters.map((c: any) => c.cy));
+          const aiMaxY = Math.max(...dedupedCenters.map((c: any) => c.cy));
+
           const ratioY = (rawCenter.cy - aiMinY) / (aiMaxY - aiMinY || 1);
           y = userMinY + ratioY * (userMaxY - userMinY);
-          console.log(`Y轴映射: AI比例=${ratioY.toFixed(3)} → 用户Y=${y.toFixed(1)}%`);
+          console.log(`Y轴校准: AI千分比=${rawCenter.cy} → AI比例=${ratioY.toFixed(3)} → 用户Y=${y.toFixed(1)}%`);
         } else {
-          // 使用千分比
+          // 直接使用千分比
           y = rawCenter.cy / 10;
-          console.log(`Y轴使用千分比: ${rawCenter.cy} → ${y}%`);
+          console.log(`Y轴千分比: ${rawCenter.cy} → ${y.toFixed(1)}%`);
         }
 
         console.log('最终百分比坐标:', { x: x.toFixed(1), y: y.toFixed(1) });
